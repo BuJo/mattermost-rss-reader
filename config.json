@@ -1,0 +1,11 @@
+{
+    "WebhookUrl": "http://mattermost",
+    "Token": "test",
+    "Channel": "town-square",
+    "IconURL": "test",
+    "Username": "test",
+    "Feeds": [
+              "https://twitrss.me/twitter_user_to_rss/?user=sadserver",
+              "https://twitrss.me/twitter_user_to_rss/?user="
+    ]
+}
