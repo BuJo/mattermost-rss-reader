@@ -3,7 +3,7 @@
     "Token": "test",
     "Channel": "town-square",
     "IconURL": "test",
-    "Username": "test",
+    "Username": "RssBot",
     "Feeds": [
               "https://twitrss.me/twitter_user_to_rss/?user=sadserver",
               "https://twitrss.me/twitter_user_to_rss/?user="

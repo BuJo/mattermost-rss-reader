@@ -1,6 +1,5 @@
 FROM golang:onbuild
-RUN mkdir /app
-ADD . /app/
-WORKDIR /app
+COPY . /go/src/app
+WORKDIR /go/src/app
 RUN go build -o main .
-CMD ["/app/main --config /app/config.json"]
+CMD ["/go/src/app/main", "--config", "/go/src/app/config.json"]

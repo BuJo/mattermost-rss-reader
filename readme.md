@@ -15,3 +15,7 @@ Run it as a docker container!!
 docker build -t "name_of_image" .
 docker run "name_of_image"
 ```
+run it with docker-compose:
+```
+docker-compose up
+```

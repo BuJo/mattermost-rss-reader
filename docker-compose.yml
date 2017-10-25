@@ -1,0 +1,8 @@
+version: '3.3'
+services:
+  xkcd:
+    build: .
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 15m
