@@ -1,11 +1,8 @@
 {
-    "WebhookUrl": "http://mattermost",
-    "Token": "test",
-    "Channel": "town-square",
-    "IconURL": "test",
+    "WebhookUrl": "http://0.0.0.0:8065/hooks/3cb4nyiqt3bftrrk76yf7ocjfh",
+    "IconURL": "http://www.iconarchive.com/download/i81323/icons8/christmas-flat-color/penguin.ico",
     "Username": "RssBot",
     "Feeds": [
-              "https://twitrss.me/twitter_user_to_rss/?user=sadserver",
-              "https://twitrss.me/twitter_user_to_rss/?user="
+              "http://rss.cnn.com/rss/cnn_latest.rss"
     ]
 }

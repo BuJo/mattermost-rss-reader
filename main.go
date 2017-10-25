@@ -74,7 +74,12 @@ func run(subscriptions []Subscription, config *Config) {
 
 func NewFeedItems(config *Config, items[]gofeed.Item) {
 	for _, item := range items {
-		toMattermost(config, fmt.Sprintf("[%s](%s)", item.Title, item.Link))
+		//toMattermost(config, fmt.Sprintf("[%s](%s)", item.Title, item.Link))
+		if item.Image != nil {
+			toMattermost(config, fmt.Sprintf("[%s](%s)\n%s", item.Title, item.Link, item.Image.URL))
+		} else {
+			toMattermost(config, fmt.Sprintf("[%s](%s)", item.Title, item.Link))
+		}
 	}
 }
 
