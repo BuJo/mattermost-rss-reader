@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/mjhuber/mattermost-rss-reader.svg?branch=master)](https://travis-ci.org/mjhuber/mattermost-rss-reader)
 # Mattermost RSS Feed Streamer
 This utility will parse RSS feeds and post updates to a Mattermost channel.
 
