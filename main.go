@@ -22,12 +22,20 @@ type Subscription struct {
 }
 
 type Config struct {
-	WebhookUrl string   `json:"WebhookUrl"`
-	Token      string   `json:"Token"`
-	Channel    string   `json:"Channel"`
-	IconURL    string   `json:"IconURL"`
-	Username   string   `json:"Username"`
-	Feeds      []string `json:"Feeds"`
+	WebhookUrl string `json:"WebhookUrl"`
+	Token      string `json:"Token"`
+	Channel    string `json:"Channel"`
+	IconURL    string `json:"IconURL"`
+	Username   string `json:"Username"`
+
+	Feeds []FeedConfig `json:"Feeds"`
+}
+type FeedConfig struct {
+	Name     string
+	Url      string
+	IconUrl  string
+	Username string
+	Channel  string
 }
 
 type MattermostMessage struct {
@@ -43,8 +51,8 @@ func main() {
 
 	//get all of our feeds and process them initially
 	subscriptions := make([]Subscription, 0)
-	for _, element := range cfg.Feeds {
-		d := getUpdates(LastRun, element)
+	for _, feed := range cfg.Feeds {
+		d := getUpdates(LastRun, feed.Url)
 		subscriptions = append(subscriptions, *d)
 		NewFeedItems(cfg, d.Updates)
 	}
