@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-  "github.com/mmcdole/gofeed"
+	"github.com/mmcdole/gofeed"
 	"time"
 	"encoding/json"
 	"io/ioutil"
@@ -13,38 +13,35 @@ import (
 )
 
 type Subscription struct {
-  Name 		string
-  Link 		string
-	Url			string
-  Updates []gofeed.Item
+	Name    string
+	Link    string
+	Url     string
+	Updates []gofeed.Item
 	LastRun int64
 }
 
 type Config struct {
-	WebhookUrl 	string 		`json:"WebhookUrl"`
-	Token 			string 		`json:"Token"`
-	Channel 		string 		`json:"Channel"`
-	IconURL 		string 		`json:"IconURL"`
-	Username 		string 		`json:"Username"`
-	Feeds				[]string 	`json:"Feeds"`
+	WebhookUrl string   `json:"WebhookUrl"`
+	Token      string   `json:"Token"`
+	Channel    string   `json:"Channel"`
+	IconURL    string   `json:"IconURL"`
+	Username   string   `json:"Username"`
+	Feeds      []string `json:"Feeds"`
 }
 
 type MattermostMessage struct {
-	Channel			string	`json:"channel"`
-	Username		string	`json:"username"`
-	Icon				string	`json:"icon_url"`
-	Message			string	`json:"text"`
+	Channel  string `json:"channel"`
+	Username string `json:"username"`
+	Icon     string `json:"icon_url"`
+	Message  string `json:"text"`
 }
-
-
-
 
 func main() {
 	LastRun := time.Now().Unix() - 300*60*1000
 	cfg := LoadConfig()
 
 	//get all of our feeds and process them initially
-	subscriptions := make([]Subscription,0)
+	subscriptions := make([]Subscription, 0)
 	for _, element := range cfg.Feeds {
 		d := getUpdates(LastRun, element)
 		subscriptions = append(subscriptions, *d)
@@ -53,8 +50,6 @@ func main() {
 	run(subscriptions, cfg)
 }
 
-
-
 func run(subscriptions []Subscription, config *Config) {
 	for {
 		for _, subscription := range subscriptions {
@@ -62,17 +57,16 @@ func run(subscriptions []Subscription, config *Config) {
 			subscription := getUpdates(subscription.LastRun, subscription.Url)
 			for _, update := range subscription.Updates {
 				fmt.Println("Processing feed update.")
-				toMattermost(config, fmt.Sprintf("[%s](%s)",update.Title,update.Link))
+				toMattermost(config, fmt.Sprintf("[%s](%s)", update.Title, update.Link))
 			}
 		}
 
 		//sleep 5 minutes
-		time.Sleep(60*time.Second)
+		time.Sleep(60 * time.Second)
 	}
 }
 
-
-func NewFeedItems(config *Config, items[]gofeed.Item) {
+func NewFeedItems(config *Config, items []gofeed.Item) {
 	for _, item := range items {
 		//toMattermost(config, fmt.Sprintf("[%s](%s)", item.Title, item.Link))
 		if item.Image != nil {
@@ -109,21 +103,20 @@ func LoadConfig() *Config {
 		os.Exit(1)
 	}
 	var config Config
-	json.Unmarshal(raw,&config)
+	json.Unmarshal(raw, &config)
 	return &config
 }
 
-
 //fetch feed updates for specified subscription
 func getUpdates(LastRun int64, url string) *Subscription {
-  fp := gofeed.NewParser()
-  feed, _ := fp.ParseURL(url)
-  data := Subscription{feed.Title,feed.Link, url, make([]gofeed.Item,0), time.Now().Unix()}
+	fp := gofeed.NewParser()
+	feed, _ := fp.ParseURL(url)
+	data := Subscription{feed.Title, feed.Link, url, make([]gofeed.Item, 0), time.Now().Unix()}
 
-  for i:=0;i<len(feed.Items);i++ {
-    if feed.Items[i].PublishedParsed != nil && feed.Items[i].PublishedParsed.Unix() > LastRun {
-      data.Updates = append(data.Updates,*feed.Items[i])
-    }
-  }
-  return &data
+	for i := 0; i < len(feed.Items); i++ {
+		if feed.Items[i].PublishedParsed != nil && feed.Items[i].PublishedParsed.Unix() > LastRun {
+			data.Updates = append(data.Updates, *feed.Items[i])
+		}
+	}
+	return &data
 }
