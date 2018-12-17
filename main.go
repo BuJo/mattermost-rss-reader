@@ -87,7 +87,7 @@ func NewFeedItem(config *Config, item gofeed.Item) {
 }
 
 //send a message to mattermost
-func toMattermost(config *Config, message string) bool {
+func toMattermost(config *Config, message string) {
 	fmt.Println("To Mattermost: ", message)
 	msg := MattermostMessage{config.Channel, config.Username, config.IconURL, message}
 	buff := new(bytes.Buffer)
@@ -95,10 +95,8 @@ func toMattermost(config *Config, message string) bool {
 	response, err := http.Post(config.WebhookUrl, "application/json;charset=utf-8", buff)
 	if err != nil {
 		fmt.Println("Error Posting message to Mattermost: ", err.Error())
-		return false
 	}
 	defer response.Body.Close()
-	return true
 }
 
 //Returns the config from json
