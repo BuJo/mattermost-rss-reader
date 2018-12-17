@@ -1,15 +1,16 @@
 package main
 
 import (
-	"fmt"
-	"github.com/mmcdole/gofeed"
-	"time"
-	"encoding/json"
-	"io/ioutil"
-	"os"
-	"flag"
-	"net/http"
 	"bytes"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"time"
+
+	"github.com/mmcdole/gofeed"
 )
 
 type Subscription struct {
