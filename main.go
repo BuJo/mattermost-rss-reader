@@ -14,9 +14,7 @@ import (
 )
 
 type Subscription struct {
-	Name    string
-	Link    string
-	Url     string
+	config  FeedConfig
 	Updates []gofeed.Item
 	LastRun int64
 }
@@ -52,19 +50,19 @@ func main() {
 	//get all of our feeds and process them initially
 	subscriptions := make([]Subscription, 0)
 	for _, feed := range cfg.Feeds {
-		d := getUpdates(LastRun, feed.Url)
-		subscriptions = append(subscriptions, *d)
-		NewFeedItems(cfg, d.Updates)
+		s := Subscription{feed, make([]gofeed.Item, 0), LastRun}
+		subscriptions = append(subscriptions, s)
 	}
+
 	run(subscriptions, cfg)
 }
 
 func run(subscriptions []Subscription, config *Config) {
 	for {
 		for _, subscription := range subscriptions {
-			fmt.Println("Get updates for ", subscription.Name)
-			subscription := getUpdates(subscription.LastRun, subscription.Url)
-			for _, update := range subscription.Updates {
+			fmt.Println("Get updates for ", subscription.config.Name)
+			updates := subscription.getUpdates()
+			for _, update := range updates {
 				fmt.Println("Processing feed update.")
 				toMattermost(config, fmt.Sprintf("[%s](%s)", update.Title, update.Link))
 			}
@@ -117,15 +115,17 @@ func LoadConfig() *Config {
 }
 
 //fetch feed updates for specified subscription
-func getUpdates(LastRun int64, url string) *Subscription {
+func (s *Subscription) getUpdates() []gofeed.Item {
 	fp := gofeed.NewParser()
-	feed, _ := fp.ParseURL(url)
-	data := Subscription{feed.Title, feed.Link, url, make([]gofeed.Item, 0), time.Now().Unix()}
+	feed, _ := fp.ParseURL(s.config.Url)
+	updates := make([]gofeed.Item, 0)
 
 	for i := 0; i < len(feed.Items); i++ {
-		if feed.Items[i].PublishedParsed != nil && feed.Items[i].PublishedParsed.Unix() > LastRun {
-			data.Updates = append(data.Updates, *feed.Items[i])
+		if feed.Items[i].PublishedParsed != nil && feed.Items[i].PublishedParsed.Unix() > s.LastRun {
+			updates = append(updates, *feed.Items[i])
 		}
 	}
-	return &data
+	s.LastRun = time.Now().Unix()
+
+	return updates
 }
