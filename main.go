@@ -54,17 +54,22 @@ func main() {
 		subscriptions = append(subscriptions, s)
 	}
 
-	run(subscriptions, cfg)
+	ch := make(chan gofeed.Item)
+
+	go run(subscriptions, ch)
+
+	for item := range ch {
+		NewFeedItem(cfg, item)
+	}
 }
 
-func run(subscriptions []Subscription, config *Config) {
+func run(subscriptions []Subscription, ch chan<- gofeed.Item) {
 	for {
 		for _, subscription := range subscriptions {
 			fmt.Println("Get updates for ", subscription.config.Name)
 			updates := subscription.getUpdates()
 			for _, update := range updates {
-				fmt.Println("Processing feed update.")
-				toMattermost(config, fmt.Sprintf("[%s](%s)", update.Title, update.Link))
+				ch <- update
 			}
 		}
 
@@ -73,14 +78,11 @@ func run(subscriptions []Subscription, config *Config) {
 	}
 }
 
-func NewFeedItems(config *Config, items []gofeed.Item) {
-	for _, item := range items {
-		//toMattermost(config, fmt.Sprintf("[%s](%s)", item.Title, item.Link))
-		if item.Image != nil {
-			toMattermost(config, fmt.Sprintf("[%s](%s)\n%s", item.Title, item.Link, item.Image.URL))
-		} else {
-			toMattermost(config, fmt.Sprintf("[%s](%s)", item.Title, item.Link))
-		}
+func NewFeedItem(config *Config, item gofeed.Item) {
+	if item.Image != nil {
+		toMattermost(config, fmt.Sprintf("[%s](%s)\n%s", item.Title, item.Link, item.Image.URL))
+	} else {
+		toMattermost(config, fmt.Sprintf("[%s](%s)", item.Title, item.Link))
 	}
 }
 
