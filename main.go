@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/mmcdole/gofeed"
@@ -56,9 +57,22 @@ type MattermostMessage struct {
 
 func main() {
 	cPath := flag.String("config", "./config.json", "Path to the config file.")
+	httpBind := flag.String("bind", "127.0.0.1:9090", "HTTP Binding")
+
 	flag.Parse()
 
 	cfg := LoadConfig(*cPath)
+
+	// Set up command server
+	go func() {
+		http.HandleFunc("/feeds", feedCommandHandler(cfg))
+		err := http.ListenAndServe(*httpBind, nil)
+		if err != nil {
+			fmt.Println("Error starting server:", err)
+		} else {
+			fmt.Printf("Listening for commands on http://%s/feeds\n", *httpBind)
+		}
+	}()
 
 	//get all of our feeds and process them initially
 	subscriptions := make([]Subscription, 0)
@@ -82,7 +96,7 @@ func main() {
 			cfg.LastRun = t.Unix()
 			cfg.Save()
 		case item := <-feedItems:
-			toMattermost(cfg, item)
+			toMattermost(cfg, feedItemToMessage(item))
 		}
 	}
 }
@@ -97,12 +111,67 @@ func run(subscriptions []Subscription, ch chan<- FeedItem) {
 	}
 }
 
+func feedCommandHandler(cfg *Config) http.HandlerFunc {
+
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		token := r.PostFormValue("token")
+
+		if token != cfg.Token {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		text := r.PostFormValue("text")
+		tokens := strings.Split(text, " ")
+		action := tokens[0]
+		switch action {
+		case "add":
+			if len(tokens) < 3 {
+				toMattermost(cfg, MattermostMessage{Message: "Usage: add <name> <url> [...]"})
+				w.WriteHeader(http.StatusNotAcceptable)
+				return
+			}
+
+			username := r.PostFormValue("user_name")
+			channel := r.PostFormValue("channel_name")
+			name := tokens[1]
+			url := tokens[2]
+			iconUrl := ""
+
+			if len(tokens) >= 4 {
+				iconUrl = tokens[3]
+			}
+
+			cfg.Feeds = append(cfg.Feeds, FeedConfig{Name: name, Url: url, IconUrl: iconUrl, Channel: channel})
+			fmt.Println("User", username, "in channel", channel, "added feed:", name, url)
+			cfg.Save()
+		case "remove":
+			newlist := make([]FeedConfig, len(cfg.Feeds)-1)
+			for _, f := range cfg.Feeds {
+				if f.Name != tokens[1] {
+					newlist = append(newlist, f)
+				}
+			}
+			cfg.Save()
+		case "list":
+			feeds := make([]string, len(cfg.Feeds))
+			for _, f := range cfg.Feeds {
+				feeds = append(feeds, f.Url)
+			}
+			toMattermost(cfg, MattermostMessage{Message: strings.Join(feeds, ",")})
+		default:
+			toMattermost(cfg, MattermostMessage{Message: "Unknown command"})
+		}
+
+	}
+}
+
 func NewFeedItem(sub Subscription, item gofeed.Item) FeedItem {
 	return FeedItem{item, sub.config}
 }
 
-//send a message to mattermost
-func toMattermost(config *Config, item FeedItem) {
+func feedItemToMessage(item FeedItem) MattermostMessage {
 	var message string
 
 	if item.Image != nil {
@@ -111,7 +180,11 @@ func toMattermost(config *Config, item FeedItem) {
 		message = fmt.Sprintf("[%s](%s)", item.Title, item.Link)
 	}
 
-	msg := MattermostMessage{item.Channel, item.Username, item.IconUrl, message}
+	return MattermostMessage{item.Channel, item.Username, item.IconUrl, message}
+}
+
+//send a message to mattermost
+func toMattermost(config *Config, msg MattermostMessage) {
 
 	if msg.Channel == "" {
 		msg.Channel = config.Channel
@@ -123,13 +196,13 @@ func toMattermost(config *Config, item FeedItem) {
 		msg.Icon = config.IconURL
 	}
 
-	fmt.Printf("To Mattermost #%s as %s: %s\n", msg.Channel, msg.Username, message)
+	fmt.Printf("To Mattermost #%s as %s: %s\n", msg.Channel, msg.Username, msg.Message)
 
 	buff := new(bytes.Buffer)
 	json.NewEncoder(buff).Encode(msg)
 	response, err := http.Post(config.WebhookUrl, "application/json;charset=utf-8", buff)
 	if err != nil {
-		fmt.Println("Error Posting message to Mattermost: ", err.Error())
+		fmt.Println("Error Posting message to Mattermost: ", err)
 		return
 	}
 	defer response.Body.Close()
