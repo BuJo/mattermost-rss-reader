@@ -90,7 +90,7 @@ func main() {
 			cfg.LastRun = t.Unix()
 			cfg.Save()
 		case item := <-feedItems:
-			feedToMattermost(cfg, item)
+			toMattermost(cfg, feedItemToMessage(item))
 		}
 	}
 }
@@ -165,7 +165,7 @@ func NewFeedItem(sub Subscription, item gofeed.Item) FeedItem {
 	return FeedItem{item, sub.config}
 }
 
-func feedToMattermost(config *Config, item FeedItem) {
+func feedItemToMessage(item FeedItem) MattermostMessage {
 	var message string
 
 	if item.Image != nil {
@@ -174,9 +174,7 @@ func feedToMattermost(config *Config, item FeedItem) {
 		message = fmt.Sprintf("[%s](%s)", item.Title, item.Link)
 	}
 
-	msg := MattermostMessage{item.Channel, item.Username, item.IconUrl, message}
-
-	toMattermost(config, msg)
+	return MattermostMessage{item.Channel, item.Username, item.IconUrl, message}
 }
 
 //send a message to mattermost
