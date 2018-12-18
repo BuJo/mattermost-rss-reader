@@ -52,7 +52,6 @@ type MattermostMessage struct {
 }
 
 func main() {
-	LastRun := time.Now().Unix() - 300*60*1000
 	cPath := flag.String("config", "./config.json", "Path to the config file.")
 	flag.Parse()
 
@@ -61,7 +60,7 @@ func main() {
 	//get all of our feeds and process them initially
 	subscriptions := make([]Subscription, 0)
 	for _, feed := range cfg.Feeds {
-		subscriptions = append(subscriptions, NewSubscription(feed, LastRun))
+		subscriptions = append(subscriptions, NewSubscription(feed, cfg.LastRun))
 	}
 
 	feedItems := make(chan FeedItem, 200)
@@ -69,11 +68,14 @@ func main() {
 
 	// Run once at start
 	run(subscriptions, feedItems)
+	cfg.LastRun = time.Now().Unix()
 
 	for {
 		select {
-		case <-updateTimer:
+		case t := <-updateTimer:
 			run(subscriptions, feedItems)
+
+			cfg.LastRun = t.Unix()
 		case item := <-feedItems:
 			toMattermost(cfg, item)
 		}
@@ -138,6 +140,11 @@ func LoadConfig(file string) *Config {
 	var config Config
 	config.file = file
 	json.Unmarshal(raw, &config)
+
+	if config.LastRun == 0 {
+		config.LastRun = time.Now().Unix() - 300*60*1000
+	}
+
 	fmt.Println("Loaded configuration.")
 	return &config
 }
