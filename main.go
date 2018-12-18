@@ -140,13 +140,19 @@ func NewSubscription(config FeedConfig, LastRun int64) Subscription {
 
 //fetch feed updates for specified subscription
 func (s Subscription) getUpdates() []gofeed.Item {
-	fp := gofeed.NewParser()
-	feed, _ := fp.ParseURL(s.config.Url)
+
 	updates := make([]gofeed.Item, 0)
 
-	for i := 0; i < len(feed.Items); i++ {
-		if feed.Items[i].PublishedParsed != nil && feed.Items[i].PublishedParsed.Unix() > s.LastRun {
-			updates = append(updates, *feed.Items[i])
+	fp := gofeed.NewParser()
+	feed, err := fp.ParseURL(s.config.Url)
+	if err != nil {
+		fmt.Println(err)
+		return updates
+	}
+
+	for _, i := range feed.Items {
+		if i.PublishedParsed != nil && i.PublishedParsed.Unix() > s.LastRun {
+			updates = append(updates, *i)
 		}
 	}
 	s.LastRun = time.Now().Unix()
