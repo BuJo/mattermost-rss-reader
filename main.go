@@ -24,9 +24,9 @@ type Config struct {
 	file string
 
 	WebhookUrl string `json:"WebhookUrl"`
-	Token      string `json:"Token"`
+	Token      string `json:"Token,omitempty"`
 	Channel    string `json:"Channel"`
-	IconURL    string `json:"IconURL"`
+	IconURL    string `json:"IconURL,omitempty"`
 	Username   string `json:"Username"`
 
 	// Application-Updated Configuration
@@ -35,11 +35,11 @@ type Config struct {
 }
 
 type FeedConfig struct {
-	Name     string
-	Url      string
-	IconUrl  string
-	Username string
-	Channel  string
+	Name     string `json:"Name,omitempty"`
+	Url      string `json:"Url"`
+	IconUrl  string `json:"IconUrl,omitempty"`
+	Username string `json:"Username,omitempty"`
+	Channel  string `json:"Channel,omitempty"`
 }
 
 type FeedItem struct {
