@@ -55,8 +55,7 @@ func main() {
 	//get all of our feeds and process them initially
 	subscriptions := make([]Subscription, 0)
 	for _, feed := range cfg.Feeds {
-		s := Subscription{feed, make([]gofeed.Item, 0), LastRun}
-		subscriptions = append(subscriptions, s)
+		subscriptions = append(subscriptions, NewSubscription(feed, LastRun))
 	}
 
 	ch := make(chan FeedItem)
@@ -134,8 +133,12 @@ func LoadConfig() *Config {
 	return &config
 }
 
+func NewSubscription(config FeedConfig, LastRun int64) Subscription {
+	return Subscription{config, make([]gofeed.Item, 0), LastRun}
+}
+
 //fetch feed updates for specified subscription
-func (s *Subscription) getUpdates() []gofeed.Item {
+func (s Subscription) getUpdates() []gofeed.Item {
 	fp := gofeed.NewParser()
 	feed, _ := fp.ParseURL(s.config.Url)
 	updates := make([]gofeed.Item, 0)
