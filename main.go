@@ -14,26 +14,32 @@ import (
 )
 
 type Subscription struct {
+	fp      *gofeed.Parser
 	config  FeedConfig
 	Updates []gofeed.Item
 	LastRun int64
 }
 
 type Config struct {
+	file string
+
 	WebhookUrl string `json:"WebhookUrl"`
-	Token      string `json:"Token"`
+	Token      string `json:"Token,omitempty"`
 	Channel    string `json:"Channel"`
-	IconURL    string `json:"IconURL"`
+	IconURL    string `json:"IconURL,omitempty"`
 	Username   string `json:"Username"`
 
-	Feeds []FeedConfig `json:"Feeds"`
+	// Application-Updated Configuration
+	LastRun int64        `json:"LastTime"`
+	Feeds   []FeedConfig `json:"Feeds"`
 }
+
 type FeedConfig struct {
-	Name     string
-	Url      string
-	IconUrl  string
-	Username string
-	Channel  string
+	Name     string `json:"Name,omitempty"`
+	Url      string `json:"Url"`
+	IconUrl  string `json:"IconUrl,omitempty"`
+	Username string `json:"Username,omitempty"`
+	Channel  string `json:"Channel,omitempty"`
 }
 
 type FeedItem struct {
@@ -49,13 +55,15 @@ type MattermostMessage struct {
 }
 
 func main() {
-	LastRun := time.Now().Unix() - 300*60*1000
-	cfg := LoadConfig()
+	cPath := flag.String("config", "./config.json", "Path to the config file.")
+	flag.Parse()
+
+	cfg := LoadConfig(*cPath)
 
 	//get all of our feeds and process them initially
 	subscriptions := make([]Subscription, 0)
 	for _, feed := range cfg.Feeds {
-		subscriptions = append(subscriptions, NewSubscription(feed, LastRun))
+		subscriptions = append(subscriptions, NewSubscription(feed, cfg.LastRun))
 	}
 
 	feedItems := make(chan FeedItem, 200)
@@ -63,11 +71,16 @@ func main() {
 
 	// Run once at start
 	run(subscriptions, feedItems)
+	cfg.LastRun = time.Now().Unix()
+	cfg.Save()
 
 	for {
 		select {
-		case <-updateTimer:
+		case t := <-updateTimer:
 			run(subscriptions, feedItems)
+
+			cfg.LastRun = t.Unix()
+			cfg.Save()
 		case item := <-feedItems:
 			toMattermost(cfg, item)
 		}
@@ -77,7 +90,6 @@ func main() {
 func run(subscriptions []Subscription, ch chan<- FeedItem) {
 
 	for _, subscription := range subscriptions {
-		fmt.Println("Get updates for ", subscription.config.Name)
 		updates := subscription.getUpdates()
 		for _, update := range updates {
 			ch <- NewFeedItem(subscription, update)
@@ -124,31 +136,53 @@ func toMattermost(config *Config, item FeedItem) {
 }
 
 //Returns the config from json
-func LoadConfig() *Config {
-	cPath := flag.String("config", "./config.json", "Path to the config file.")
-	flag.Parse()
-
-	raw, err := ioutil.ReadFile(*cPath)
+func LoadConfig(file string) *Config {
+	raw, err := ioutil.ReadFile(file)
 	if err != nil {
-		fmt.Println("Error reading config file: ", err.Error())
+		fmt.Println("Error reading config file: ", err)
 		os.Exit(1)
 	}
 	var config Config
+	config.file = file
 	json.Unmarshal(raw, &config)
+
+	if config.LastRun == 0 {
+		config.LastRun = time.Now().Unix() - 300*60*1000
+	}
+
+	fmt.Println("Loaded configuration.")
 	return &config
 }
 
+func (c *Config) Save() {
+	raw, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		fmt.Println("Error serializing configuration", err)
+		return
+	}
+
+	// XXX: Fail, atomic move
+	err = ioutil.WriteFile(c.file, raw, 0640)
+	if err != nil {
+		fmt.Println("Error writing config file: ", err)
+	}
+
+	fmt.Println("Saved configuration.")
+}
+
 func NewSubscription(config FeedConfig, LastRun int64) Subscription {
-	return Subscription{config, make([]gofeed.Item, 0), LastRun}
+	fp := gofeed.NewParser()
+	return Subscription{fp, config, make([]gofeed.Item, 0), LastRun}
 }
 
 //fetch feed updates for specified subscription
 func (s Subscription) getUpdates() []gofeed.Item {
 
+	fmt.Println("Get updates from ", s.config.Url)
+
 	updates := make([]gofeed.Item, 0)
 
-	fp := gofeed.NewParser()
-	feed, err := fp.ParseURL(s.config.Url)
+	feed, err := s.fp.ParseURL(s.config.Url)
 	if err != nil {
 		fmt.Println(err)
 		return updates
@@ -160,6 +194,8 @@ func (s Subscription) getUpdates() []gofeed.Item {
 		}
 	}
 	s.LastRun = time.Now().Unix()
+
+	fmt.Println("Got ", len(updates), " updates from ", s.config.Url)
 
 	return updates
 }
