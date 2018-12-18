@@ -77,7 +77,6 @@ func main() {
 func run(subscriptions []Subscription, ch chan<- FeedItem) {
 
 	for _, subscription := range subscriptions {
-		fmt.Println("Get updates for ", subscription.config.Name)
 		updates := subscription.getUpdates()
 		for _, update := range updates {
 			ch <- NewFeedItem(subscription, update)
@@ -145,6 +144,8 @@ func NewSubscription(config FeedConfig, LastRun int64) Subscription {
 //fetch feed updates for specified subscription
 func (s Subscription) getUpdates() []gofeed.Item {
 
+	fmt.Println("Get updates from ", s.config.Url)
+
 	updates := make([]gofeed.Item, 0)
 
 	fp := gofeed.NewParser()
@@ -160,6 +161,8 @@ func (s Subscription) getUpdates() []gofeed.Item {
 		}
 	}
 	s.LastRun = time.Now().Unix()
+
+	fmt.Println("Got ", len(updates), " updates from ", s.config.Url)
 
 	return updates
 }
