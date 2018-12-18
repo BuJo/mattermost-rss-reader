@@ -21,6 +21,8 @@ type Subscription struct {
 }
 
 type Config struct {
+	file string
+
 	WebhookUrl string `json:"WebhookUrl"`
 	Token      string `json:"Token"`
 	Channel    string `json:"Channel"`
@@ -51,7 +53,10 @@ type MattermostMessage struct {
 
 func main() {
 	LastRun := time.Now().Unix() - 300*60*1000
-	cfg := LoadConfig()
+	cPath := flag.String("config", "./config.json", "Path to the config file.")
+	flag.Parse()
+
+	cfg := LoadConfig(*cPath)
 
 	//get all of our feeds and process them initially
 	subscriptions := make([]Subscription, 0)
@@ -124,17 +129,16 @@ func toMattermost(config *Config, item FeedItem) {
 }
 
 //Returns the config from json
-func LoadConfig() *Config {
-	cPath := flag.String("config", "./config.json", "Path to the config file.")
-	flag.Parse()
-
-	raw, err := ioutil.ReadFile(*cPath)
+func LoadConfig(file string) *Config {
+	raw, err := ioutil.ReadFile(file)
 	if err != nil {
-		fmt.Println("Error reading config file: ", err.Error())
+		fmt.Println("Error reading config file: ", err)
 		os.Exit(1)
 	}
 	var config Config
+	config.file = file
 	json.Unmarshal(raw, &config)
+	fmt.Println("Loaded configuration.")
 	return &config
 }
 
