@@ -64,9 +64,15 @@ func main() {
 	cfg := LoadConfig(*cPath)
 
 	// Set up command server
-	http.HandleFunc("/feeds", feedCommandHandler(cfg))
-	go http.ListenAndServe(*httpBind, nil)
-	fmt.Printf("Listening for commands on http://%s/feeds\n", *httpBind)
+	go func() {
+		http.HandleFunc("/feeds", feedCommandHandler(cfg))
+		err := http.ListenAndServe(*httpBind, nil)
+		if err != nil {
+			fmt.Println("Error starting server:", err)
+		} else {
+			fmt.Printf("Listening for commands on http://%s/feeds\n", *httpBind)
+		}
+	}()
 
 	//get all of our feeds and process them initially
 	subscriptions := make([]Subscription, 0)
