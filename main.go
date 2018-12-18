@@ -114,6 +114,7 @@ func toMattermost(config *Config, item FeedItem) {
 	response, err := http.Post(config.WebhookUrl, "application/json;charset=utf-8", buff)
 	if err != nil {
 		fmt.Println("Error Posting message to Mattermost: ", err.Error())
+		return
 	}
 	defer response.Body.Close()
 }
