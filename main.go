@@ -58,27 +58,30 @@ func main() {
 		subscriptions = append(subscriptions, NewSubscription(feed, LastRun))
 	}
 
-	ch := make(chan FeedItem)
+	feedItems := make(chan FeedItem, 200)
+	updateTimer := time.Tick(5 * time.Minute)
 
-	go run(subscriptions, ch)
+	// Run once at start
+	run(subscriptions, feedItems)
 
-	for item := range ch {
-		toMattermost(cfg, item)
+	for {
+		select {
+		case <-updateTimer:
+			run(subscriptions, feedItems)
+		case item := <-feedItems:
+			toMattermost(cfg, item)
+		}
 	}
 }
 
 func run(subscriptions []Subscription, ch chan<- FeedItem) {
-	for {
-		for _, subscription := range subscriptions {
-			fmt.Println("Get updates for ", subscription.config.Name)
-			updates := subscription.getUpdates()
-			for _, update := range updates {
-				ch <- NewFeedItem(subscription, update)
-			}
-		}
 
-		//sleep 5 minutes
-		time.Sleep(60 * time.Second)
+	for _, subscription := range subscriptions {
+		fmt.Println("Get updates for ", subscription.config.Name)
+		updates := subscription.getUpdates()
+		for _, update := range updates {
+			ch <- NewFeedItem(subscription, update)
+		}
 	}
 }
 
