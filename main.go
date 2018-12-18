@@ -95,7 +95,6 @@ func toMattermost(config *Config, item FeedItem) {
 	} else {
 		message = fmt.Sprintf("[%s](%s)", item.Title, item.Link)
 	}
-	fmt.Println("To Mattermost: ", message)
 
 	msg := MattermostMessage{item.Channel, item.Username, item.IconUrl, message}
 
@@ -108,6 +107,8 @@ func toMattermost(config *Config, item FeedItem) {
 	if msg.Icon == "" {
 		msg.Icon = config.IconURL
 	}
+
+	fmt.Printf("To Mattermost #%s as %s: %s\n", msg.Channel, msg.Username, message)
 
 	buff := new(bytes.Buffer)
 	json.NewEncoder(buff).Encode(msg)
