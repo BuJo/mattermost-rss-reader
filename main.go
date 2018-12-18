@@ -66,11 +66,10 @@ func main() {
 	// Set up command server
 	go func() {
 		http.HandleFunc("/feeds", feedCommandHandler(cfg))
+		fmt.Printf("Listening for commands on http://%s/feeds\n", *httpBind)
 		err := http.ListenAndServe(*httpBind, nil)
 		if err != nil {
 			fmt.Println("Error starting server:", err)
-		} else {
-			fmt.Printf("Listening for commands on http://%s/feeds\n", *httpBind)
 		}
 	}()
 
