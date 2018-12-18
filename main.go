@@ -29,8 +29,11 @@ type Config struct {
 	IconURL    string `json:"IconURL"`
 	Username   string `json:"Username"`
 
-	Feeds []FeedConfig `json:"Feeds"`
+	// Application-Updated Configuration
+	LastRun int64        `json:"LastTime"`
+	Feeds   []FeedConfig `json:"Feeds"`
 }
+
 type FeedConfig struct {
 	Name     string
 	Url      string
@@ -69,6 +72,7 @@ func main() {
 	// Run once at start
 	run(subscriptions, feedItems)
 	cfg.LastRun = time.Now().Unix()
+	cfg.Save()
 
 	for {
 		select {
@@ -76,6 +80,7 @@ func main() {
 			run(subscriptions, feedItems)
 
 			cfg.LastRun = t.Unix()
+			cfg.Save()
 		case item := <-feedItems:
 			toMattermost(cfg, item)
 		}
@@ -147,6 +152,22 @@ func LoadConfig(file string) *Config {
 
 	fmt.Println("Loaded configuration.")
 	return &config
+}
+
+func (c *Config) Save() {
+	raw, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		fmt.Println("Error serializing configuration", err)
+		return
+	}
+
+	// XXX: Fail, atomic move
+	err = ioutil.WriteFile(c.file, raw, 0640)
+	if err != nil {
+		fmt.Println("Error writing config file: ", err)
+	}
+
+	fmt.Println("Saved configuration.")
 }
 
 func NewSubscription(config FeedConfig, LastRun int64) Subscription {
