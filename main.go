@@ -14,6 +14,7 @@ import (
 )
 
 type Subscription struct {
+	fp      *gofeed.Parser
 	config  FeedConfig
 	Updates []gofeed.Item
 	LastRun int64
@@ -148,8 +149,7 @@ func (s Subscription) getUpdates() []gofeed.Item {
 
 	updates := make([]gofeed.Item, 0)
 
-	fp := gofeed.NewParser()
-	feed, err := fp.ParseURL(s.config.Url)
+	feed, err := s.fp.ParseURL(s.config.Url)
 	if err != nil {
 		fmt.Println(err)
 		return updates
