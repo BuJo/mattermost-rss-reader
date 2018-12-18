@@ -143,7 +143,8 @@ func LoadConfig(file string) *Config {
 }
 
 func NewSubscription(config FeedConfig, LastRun int64) Subscription {
-	return Subscription{config, make([]gofeed.Item, 0), LastRun}
+	fp := gofeed.NewParser()
+	return Subscription{fp, config, make([]gofeed.Item, 0), LastRun}
 }
 
 //fetch feed updates for specified subscription
