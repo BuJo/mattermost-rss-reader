@@ -36,6 +36,11 @@ type FeedConfig struct {
 	Channel  string
 }
 
+type FeedItem struct {
+	gofeed.Item
+	FeedConfig
+}
+
 type MattermostMessage struct {
 	Channel  string `json:"channel"`
 	Username string `json:"username"`
@@ -54,22 +59,22 @@ func main() {
 		subscriptions = append(subscriptions, s)
 	}
 
-	ch := make(chan gofeed.Item)
+	ch := make(chan FeedItem)
 
 	go run(subscriptions, ch)
 
 	for item := range ch {
-		NewFeedItem(cfg, item)
+		toMattermost(cfg, item)
 	}
 }
 
-func run(subscriptions []Subscription, ch chan<- gofeed.Item) {
+func run(subscriptions []Subscription, ch chan<- FeedItem) {
 	for {
 		for _, subscription := range subscriptions {
 			fmt.Println("Get updates for ", subscription.config.Name)
 			updates := subscription.getUpdates()
 			for _, update := range updates {
-				ch <- update
+				ch <- NewFeedItem(subscription, update)
 			}
 		}
 
@@ -78,18 +83,33 @@ func run(subscriptions []Subscription, ch chan<- gofeed.Item) {
 	}
 }
 
-func NewFeedItem(config *Config, item gofeed.Item) {
-	if item.Image != nil {
-		toMattermost(config, fmt.Sprintf("[%s](%s)\n%s", item.Title, item.Link, item.Image.URL))
-	} else {
-		toMattermost(config, fmt.Sprintf("[%s](%s)", item.Title, item.Link))
-	}
+func NewFeedItem(sub Subscription, item gofeed.Item) FeedItem {
+	return FeedItem{item, sub.config}
 }
 
 //send a message to mattermost
-func toMattermost(config *Config, message string) {
+func toMattermost(config *Config, item FeedItem) {
+	var message string
+
+	if item.Image != nil {
+		message = fmt.Sprintf("[%s](%s)\n%s", item.Title, item.Link, item.Image.URL)
+	} else {
+		message = fmt.Sprintf("[%s](%s)", item.Title, item.Link)
+	}
 	fmt.Println("To Mattermost: ", message)
-	msg := MattermostMessage{config.Channel, config.Username, config.IconURL, message}
+
+	msg := MattermostMessage{item.Channel, item.Username, item.IconUrl, message}
+
+	if msg.Channel == "" {
+		msg.Channel = config.Channel
+	}
+	if msg.Username == "" {
+		msg.Username = config.Username
+	}
+	if msg.Icon == "" {
+		msg.Icon = config.IconURL
+	}
+
 	buff := new(bytes.Buffer)
 	json.NewEncoder(buff).Encode(msg)
 	response, err := http.Post(config.WebhookUrl, "application/json;charset=utf-8", buff)
