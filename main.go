@@ -18,7 +18,6 @@ type Subscription struct {
 	fp      *gofeed.Parser
 	config  FeedConfig
 	Updates []gofeed.Item
-	LastRun int64
 }
 
 type Config struct {
@@ -31,8 +30,7 @@ type Config struct {
 	Username   string `json:"Username"`
 
 	// Application-Updated Configuration
-	LastRun int64        `json:"LastTime"`
-	Feeds   []FeedConfig `json:"Feeds"`
+	Feeds []FeedConfig `json:"Feeds"`
 }
 
 type FeedConfig struct {
@@ -76,7 +74,7 @@ func main() {
 	//get all of our feeds and process them initially
 	subscriptions := make([]Subscription, 0)
 	for _, feed := range cfg.Feeds {
-		subscriptions = append(subscriptions, NewSubscription(feed, cfg.LastRun))
+		subscriptions = append(subscriptions, NewSubscription(feed))
 	}
 
 	feedItems := make(chan FeedItem, 200)
@@ -84,16 +82,11 @@ func main() {
 
 	// Run once at start
 	run(subscriptions, feedItems)
-	cfg.LastRun = time.Now().Unix()
-	cfg.Save()
 
 	for {
 		select {
-		case t := <-updateTimer:
+		case <-updateTimer:
 			run(subscriptions, feedItems)
-
-			cfg.LastRun = t.Unix()
-			cfg.Save()
 		case item := <-feedItems:
 			toMattermost(cfg, feedItemToMessage(item))
 		}
@@ -218,10 +211,6 @@ func LoadConfig(file string) *Config {
 	config.file = file
 	json.Unmarshal(raw, &config)
 
-	if config.LastRun == 0 {
-		config.LastRun = time.Now().Unix() - 300*60*1000
-	}
-
 	fmt.Println("Loaded configuration.")
 	return &config
 }
@@ -242,9 +231,9 @@ func (c *Config) Save() {
 	fmt.Println("Saved configuration.")
 }
 
-func NewSubscription(config FeedConfig, LastRun int64) Subscription {
+func NewSubscription(config FeedConfig) Subscription {
 	fp := gofeed.NewParser()
-	return Subscription{fp, config, make([]gofeed.Item, 0), LastRun}
+	return Subscription{fp, config, make([]gofeed.Item, 0)}
 }
 
 //fetch feed updates for specified subscription
@@ -261,11 +250,10 @@ func (s Subscription) getUpdates() []gofeed.Item {
 	}
 
 	for _, i := range feed.Items {
-		if i.PublishedParsed != nil && i.PublishedParsed.Unix() > s.LastRun {
+		if i.PublishedParsed != nil {
 			updates = append(updates, *i)
 		}
 	}
-	s.LastRun = time.Now().Unix()
 
 	fmt.Println("Got ", len(updates), " updates from ", s.config.Url)
 
