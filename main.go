@@ -24,6 +24,7 @@ type Subscription struct {
 type Config struct {
 	file       string
 	shownFeeds map[[sha1.Size]byte]bool
+	interval   time.Duration
 
 	WebhookUrl  string `json:"WebhookUrl"`
 	Token       string `json:"Token,omitempty"`
@@ -31,6 +32,7 @@ type Config struct {
 	IconURL     string `json:"IconURL,omitempty"`
 	Username    string `json:"Username"`
 	SkipInitial bool   `json:"SkipInitial"`
+	Interval    string `json:"Interval"`
 
 	// Application-Updated Configuration
 	Feeds []FeedConfig `json:"Feeds"`
@@ -81,9 +83,10 @@ func main() {
 	}
 
 	feedItems := make(chan FeedItem, 200)
-	updateTimer := time.Tick(5 * time.Minute)
+	updateTimer := time.Tick(cfg.interval)
 
 	// Run once at start
+	fmt.Println("Ready to fetch feeds. Interval:", cfg.interval)
 	run(cfg, subscriptions, feedItems)
 
 	for {
@@ -234,6 +237,13 @@ func LoadConfig(file string) *Config {
 	var config Config
 	config.file = file
 	json.Unmarshal(raw, &config)
+
+	interval, err := time.ParseDuration(config.Interval)
+	if err == nil && interval > 0 {
+		config.interval = interval
+	} else {
+		config.interval = 5 * time.Minute
+	}
 
 	fmt.Println("Loaded configuration.")
 	return &config
