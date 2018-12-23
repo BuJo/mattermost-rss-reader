@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha1"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -18,21 +19,21 @@ type Subscription struct {
 	fp      *gofeed.Parser
 	config  FeedConfig
 	Updates []gofeed.Item
-	LastRun int64
 }
 
 type Config struct {
-	file string
+	file       string
+	shownFeeds map[[sha1.Size]byte]bool
 
-	WebhookUrl string `json:"WebhookUrl"`
-	Token      string `json:"Token,omitempty"`
-	Channel    string `json:"Channel"`
-	IconURL    string `json:"IconURL,omitempty"`
-	Username   string `json:"Username"`
+	WebhookUrl  string `json:"WebhookUrl"`
+	Token       string `json:"Token,omitempty"`
+	Channel     string `json:"Channel"`
+	IconURL     string `json:"IconURL,omitempty"`
+	Username    string `json:"Username"`
+	SkipInitial bool   `json:"SkipInitial"`
 
 	// Application-Updated Configuration
-	LastRun int64        `json:"LastTime"`
-	Feeds   []FeedConfig `json:"Feeds"`
+	Feeds []FeedConfig `json:"Feeds"`
 }
 
 type FeedConfig struct {
@@ -76,38 +77,54 @@ func main() {
 	//get all of our feeds and process them initially
 	subscriptions := make([]Subscription, 0)
 	for _, feed := range cfg.Feeds {
-		subscriptions = append(subscriptions, NewSubscription(feed, cfg.LastRun))
+		subscriptions = append(subscriptions, NewSubscription(feed))
 	}
 
 	feedItems := make(chan FeedItem, 200)
 	updateTimer := time.Tick(5 * time.Minute)
 
 	// Run once at start
-	run(subscriptions, feedItems)
-	cfg.LastRun = time.Now().Unix()
-	cfg.Save()
+	run(cfg, subscriptions, feedItems)
 
 	for {
 		select {
-		case t := <-updateTimer:
-			run(subscriptions, feedItems)
-
-			cfg.LastRun = t.Unix()
-			cfg.Save()
+		case <-updateTimer:
+			run(cfg, subscriptions, feedItems)
 		case item := <-feedItems:
 			toMattermost(cfg, feedItemToMessage(item))
 		}
 	}
 }
 
-func run(subscriptions []Subscription, ch chan<- FeedItem) {
+func run(cfg *Config, subscriptions []Subscription, ch chan<- FeedItem) {
+
+	initialRun := false
+	if cfg.shownFeeds == nil {
+		initialRun = true
+	}
+	shownFeeds := make(map[[sha1.Size]byte]bool, 0)
 
 	for _, subscription := range subscriptions {
 		updates := subscription.getUpdates()
 		for _, update := range updates {
+			hsh := sha1.Sum(append([]byte(update.Title), []byte(subscription.config.Url)...))
+
+			shownFeeds[hsh] = true
+
+			if initialRun && cfg.SkipInitial {
+				fmt.Println("Skipping", update.Title, ", initial run")
+
+				continue
+			} else if _, ok := cfg.shownFeeds[hsh]; ok {
+				fmt.Println("Skipping", update.Title, ", already published")
+				continue
+			}
+
 			ch <- NewFeedItem(subscription, update)
 		}
 	}
+
+	cfg.shownFeeds = shownFeeds
 }
 
 func feedCommandHandler(cfg *Config) http.HandlerFunc {
@@ -218,10 +235,6 @@ func LoadConfig(file string) *Config {
 	config.file = file
 	json.Unmarshal(raw, &config)
 
-	if config.LastRun == 0 {
-		config.LastRun = time.Now().Unix() - 300*60*1000
-	}
-
 	fmt.Println("Loaded configuration.")
 	return &config
 }
@@ -242,9 +255,9 @@ func (c *Config) Save() {
 	fmt.Println("Saved configuration.")
 }
 
-func NewSubscription(config FeedConfig, LastRun int64) Subscription {
+func NewSubscription(config FeedConfig) Subscription {
 	fp := gofeed.NewParser()
-	return Subscription{fp, config, make([]gofeed.Item, 0), LastRun}
+	return Subscription{fp, config, make([]gofeed.Item, 0)}
 }
 
 //fetch feed updates for specified subscription
@@ -261,11 +274,10 @@ func (s Subscription) getUpdates() []gofeed.Item {
 	}
 
 	for _, i := range feed.Items {
-		if i.PublishedParsed != nil && i.PublishedParsed.Unix() > s.LastRun {
+		if i.PublishedParsed != nil {
 			updates = append(updates, *i)
 		}
 	}
-	s.LastRun = time.Now().Unix()
 
 	fmt.Println("Got ", len(updates), " updates from ", s.config.Url)
 
