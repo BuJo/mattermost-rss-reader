@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha1"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -21,13 +22,15 @@ type Subscription struct {
 }
 
 type Config struct {
-	file string
+	file       string
+	shownFeeds map[[sha1.Size]byte]bool
 
-	WebhookUrl string `json:"WebhookUrl"`
-	Token      string `json:"Token,omitempty"`
-	Channel    string `json:"Channel"`
-	IconURL    string `json:"IconURL,omitempty"`
-	Username   string `json:"Username"`
+	WebhookUrl  string `json:"WebhookUrl"`
+	Token       string `json:"Token,omitempty"`
+	Channel     string `json:"Channel"`
+	IconURL     string `json:"IconURL,omitempty"`
+	Username    string `json:"Username"`
+	SkipInitial bool   `json:"SkipInitial"`
 
 	// Application-Updated Configuration
 	Feeds []FeedConfig `json:"Feeds"`
@@ -81,26 +84,47 @@ func main() {
 	updateTimer := time.Tick(5 * time.Minute)
 
 	// Run once at start
-	run(subscriptions, feedItems)
+	run(cfg, subscriptions, feedItems)
 
 	for {
 		select {
 		case <-updateTimer:
-			run(subscriptions, feedItems)
+			run(cfg, subscriptions, feedItems)
 		case item := <-feedItems:
 			toMattermost(cfg, feedItemToMessage(item))
 		}
 	}
 }
 
-func run(subscriptions []Subscription, ch chan<- FeedItem) {
+func run(cfg *Config, subscriptions []Subscription, ch chan<- FeedItem) {
+
+	initialRun := false
+	if cfg.shownFeeds == nil {
+		initialRun = true
+	}
+	shownFeeds := make(map[[sha1.Size]byte]bool, 0)
 
 	for _, subscription := range subscriptions {
 		updates := subscription.getUpdates()
 		for _, update := range updates {
+			hsh := sha1.Sum(append([]byte(update.Title), []byte(subscription.config.Url)...))
+
+			shownFeeds[hsh] = true
+
+			if initialRun && cfg.SkipInitial {
+				fmt.Println("Skipping", update.Title, ", initial run")
+
+				continue
+			} else if _, ok := cfg.shownFeeds[hsh]; ok {
+				fmt.Println("Skipping", update.Title, ", already published")
+				continue
+			}
+
 			ch <- NewFeedItem(subscription, update)
 		}
 	}
+
+	cfg.shownFeeds = shownFeeds
 }
 
 func feedCommandHandler(cfg *Config) http.HandlerFunc {
