@@ -16,17 +16,38 @@ This utility will parse Atom/RSS feeds and post updates to a Mattermost channel.
       - Display Name: Xkcd
       - Description: Xkcd
       - Channel: Name of the channel you want to post into
-    - Copy the webhook URL generated into the "WebhookUrl" property in config.json.
+    - Copy the webhook URL generated into the `WebhookUrl` property in `config.json`.
 
+If you want to allow Mattermost users to configure the feeds, also configure a Slash command:
+
+1.  Deploy the mattermost-rss-reader (preferably behind a tls proxy)
+2.  Add Slash Command in Mattermost
+    - Go to your team's Integrations page and click "Slash Commands".
+    - Add Slash Command
+      - Title: Xkcd
+      - Command Trigger Word: feed
+      - Request URL: https:// URL to mattermost-rss-reader
+      - Request Method: POST
+      - Autocomplete: true
+      - Autocomplete Hint: `list | add <Feed Name> <Feed URL> [<Image URL>]`
+    - Copy the Token from the resulting Slash Command into the `Token` property in `config.json`
 
 ## Config Requirements
 
 Configuration is loaded from the included config.json.  Supply the following variables:
 
-1.  WebhookUrl - url to post the messages to Mattermost
-3.  IconUrl - URL to an image to use for the icon for each post.
-4.  Username - Username the post will be displayed as.
-4.  Feeds - Collection of RSS URLs to poll.
+1.  WebhookUrl - URL to post the messages to Mattermost
+3.  IconUrl - URL to an image to use for the icon for each post (optional, can be overridden in feed).
+4.  Username - Username the post will be displayed as (optional, can be overridden in feed).
+5.  Token - Token for allowing slash commands to affect the configured feeds from Mattermost (optional).
+6.  SkipInitial - Allows the first articles to be discarded on application start (optional, `false` by default)
+7.  Interval - At which interval the feeds are polled (optional, `5m` by default).
+8.  Feeds - Collection of RSS URLs to poll.
+    - Name - Used for displaying and identifying the feed
+    - Url - which URL to pool.
+    - IconUrl - optional icon URL
+    - Username - optional username
+    - Channel - optional channel name
 
 ## Docker
 
