@@ -1,13 +1,15 @@
 [![Build Status](https://travis-ci.org/mjhuber/mattermost-rss-reader.svg?branch=master)](https://travis-ci.org/mjhuber/mattermost-rss-reader)
 # Mattermost RSS Feed Streamer
-This utility will parse RSS feeds and post updates to a Mattermost channel.
+
+This utility will parse Atom/RSS feeds and post updates to a Mattermost channel.
 
 ## Setup
+
 1.  Configure Mattermost
-  - Go to the System Console.  Under Integrations=>Custom Integrations, set the following:
-    - Enable Incoming Webhooks: True
-    - Enable Integrations to override usernames: True
-    - Enable Integrations to override profile picture icons: True
+    - Go to the System Console.  Under Integrations=>Custom Integrations, set the following:
+      - Enable Incoming Webhooks: True
+      - Enable Integrations to override usernames: True
+      - Enable Integrations to override profile picture icons: True
 2.  Add incoming webhook in Mattermost
     - Go to your team's Integrations page and click "Incoming Webhooks".
     - Add an incoming Webhook:
@@ -18,6 +20,7 @@ This utility will parse RSS feeds and post updates to a Mattermost channel.
 
 
 ## Config Requirements
+
 Configuration is loaded from the included config.json.  Supply the following variables:
 
 1.  WebhookUrl - url to post the messages to Mattermost
@@ -26,12 +29,32 @@ Configuration is loaded from the included config.json.  Supply the following var
 4.  Feeds - Collection of RSS URLs to poll.
 
 ## Docker
+
 Run it as a docker container!!
-```
+```bash
 docker build -t "name_of_image" .
 docker run "name_of_image"
 ```
-run it with docker-compose:
-```
+Run it with `docker-compose`:
+```bash
 docker-compose up
+```
+
+## Releasing
+
+Add a git tag
+```bash
+git tag v0.7
+```
+
+### Build Docker Release
+
+```bash
+docker build -t name_of_image:0.7 --build-arg release=v0.7 .
+```
+
+### Build local release
+
+```bash
+make all release=v0.7
 ```
