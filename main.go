@@ -52,9 +52,9 @@ type FeedItem struct {
 }
 
 type MattermostMessage struct {
-	Channel  string `json:"channel"`
-	Username string `json:"username"`
-	Icon     string `json:"icon_url"`
+	Channel  string `json:"channel,omitempty"`
+	Username string `json:"username,omitempty"`
+	Icon     string `json:"icon_url,omitempty"`
 	Message  string `json:"text"`
 }
 
@@ -141,13 +141,16 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 			return
 		}
 
+		w.Header().Set("Content-Type", "application/json")
+
 		text := r.PostFormValue("text")
 		tokens := strings.Split(text, " ")
 		action := tokens[0]
 		switch action {
 		case "add":
 			if len(tokens) < 3 {
-				toMattermost(cfg, MattermostMessage{Message: "Usage: add <name> <url> [...]"})
+				j, _ := json.Marshal(MattermostMessage{Message: "Usage: add <name> <url> [iconUrl]"})
+				w.Write(j)
 				w.WriteHeader(http.StatusNotAcceptable)
 				return
 			}
@@ -165,6 +168,9 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 			cfg.Feeds = append(cfg.Feeds, FeedConfig{Name: name, Url: url, IconUrl: iconUrl, Channel: channel})
 			fmt.Println("User", username, "in channel", channel, "added feed:", name, url)
 			cfg.Save()
+
+			j, _ := json.Marshal(MattermostMessage{Message: "Added feed."})
+			w.Write(j)
 		case "remove":
 			newlist := make([]FeedConfig, len(cfg.Feeds)-1)
 			for _, f := range cfg.Feeds {
@@ -173,14 +179,21 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 				}
 			}
 			cfg.Save()
+
+			j, _ := json.Marshal(MattermostMessage{Message: "Removed feed."})
+			w.Write(j)
 		case "list":
-			feeds := make([]string, len(cfg.Feeds))
+			str := ""
 			for _, f := range cfg.Feeds {
-				feeds = append(feeds, f.Url)
+				str += "* " + f.Name + " (" + f.Url + ")\n"
 			}
-			toMattermost(cfg, MattermostMessage{Message: strings.Join(feeds, ",")})
+			j, _ := json.Marshal(MattermostMessage{Message: str})
+			w.Write(j)
+			w.WriteHeader(http.StatusOK)
 		default:
-			toMattermost(cfg, MattermostMessage{Message: "Unknown command"})
+			j, _ := json.Marshal(MattermostMessage{Message: "Unknown command"})
+			w.Write(j)
+			w.WriteHeader(http.StatusNotAcceptable)
 		}
 
 	}
