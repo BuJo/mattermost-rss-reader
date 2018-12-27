@@ -58,11 +58,19 @@ type MattermostMessage struct {
 	Message  string `json:"text"`
 }
 
+var Version = "development"
+
 func main() {
 	cPath := flag.String("config", "./config.json", "Path to the config file.")
 	httpBind := flag.String("bind", "127.0.0.1:9090", "HTTP Binding")
+	printVersion := flag.Bool("version", false, "Show Version")
 
 	flag.Parse()
+
+	if *printVersion {
+		fmt.Println("mattermost-rss-reader, version: " + Version)
+		return
+	}
 
 	cfg := LoadConfig(*cPath)
 
