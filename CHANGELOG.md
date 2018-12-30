@@ -11,6 +11,8 @@
 ## Release v0.7 - 2018-12-28
 
 * Software has been released under MIT license.
+* Add `-version` flag to software.
+* Nicer responses to Slash Commands.
 
 ## Release v0.6 - 2018-12-23
 
