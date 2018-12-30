@@ -309,8 +309,6 @@ func (c *Config) LoadFeeds() {
 }
 
 // SaveFeeds will save the current list of feeds.
-//
-// BUG(Jo): Saving should be done atomically to avoid certain failure modes.
 func (c *Config) SaveFeeds() {
 	if c.FeedFile == "" {
 		fmt.Println("Not saving feeds, configure `FeedFile`.")
@@ -318,16 +316,31 @@ func (c *Config) SaveFeeds() {
 
 	raw, err := json.MarshalIndent(c.Feeds, "", "  ")
 	if err != nil {
-		fmt.Println("Error serializing configuration", err)
+		fmt.Println("Error serializing feeds:", err)
 		return
 	}
 
-	err = ioutil.WriteFile(c.FeedFile, raw, 0640)
+	tmpfile, err := ioutil.TempFile("", "mamo-rss-reader")
 	if err != nil {
-		fmt.Println("Error writing config file: ", err)
+		fmt.Println("Error opening tempfile for saving feeds", err)
+		return
 	}
 
-	fmt.Println("Saved configuration.")
+	if _, err = tmpfile.Write(raw); err != nil {
+		fmt.Println("Error writing config file:", err)
+		return
+	}
+	if err = tmpfile.Close(); err != nil {
+		fmt.Println("Error writing config file:", err)
+		return
+	}
+
+	if err = os.Rename(tmpfile.Name(), c.FeedFile); err != nil {
+		fmt.Println("Error writing config file:", err)
+		return
+	}
+
+	fmt.Println("Saved feeds.")
 }
 
 // NewSubscription returns a new subscription for a given configuration.
