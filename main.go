@@ -193,12 +193,14 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 			j, _ := json.Marshal(MattermostMessage{Message: "Added feed."})
 			w.Write(j)
 		case "remove":
+			name := tokens[1]
 			newlist := make([]FeedConfig, len(cfg.Feeds)-1)
 			for _, f := range cfg.Feeds {
-				if f.Name != tokens[1] {
+				if f.Name != name {
 					newlist = append(newlist, f)
 				}
 			}
+			cfg.Feeds = newlist
 			cfg.Save()
 
 			j, _ := json.Marshal(MattermostMessage{Message: "Removed feed."})
