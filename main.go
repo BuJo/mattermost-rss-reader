@@ -74,7 +74,7 @@ func main() {
 	flag.Parse()
 
 	if *printVersion {
-		fmt.Println("mattermost-rss-reader, version: " + Version)
+		fmt.Println("mattermost-rss-reader, version:", Version)
 		return
 	}
 
@@ -259,7 +259,7 @@ func toMattermost(config *Config, msg MattermostMessage) {
 	json.NewEncoder(buff).Encode(msg)
 	response, err := http.Post(config.WebhookURL, "application/json;charset=utf-8", buff)
 	if err != nil {
-		fmt.Println("Error Posting message to Mattermost: ", err)
+		fmt.Println("Error Posting message to Mattermost:", err)
 		return
 	}
 	defer response.Body.Close()
@@ -269,13 +269,13 @@ func toMattermost(config *Config, msg MattermostMessage) {
 func LoadConfig(file string) *Config {
 	raw, err := ioutil.ReadFile(file)
 	if err != nil {
-		fmt.Println("Error reading config file: ", err)
+		fmt.Println("Error reading config file:", err)
 		os.Exit(1)
 	}
 	var config Config
 	config.file = file
 	if err = json.Unmarshal(raw, &config); err != nil {
-		fmt.Println("Error reading feed file: ", err)
+		fmt.Println("Error reading feed file:", err)
 		os.Exit(1)
 	}
 
@@ -298,12 +298,12 @@ func LoadConfig(file string) *Config {
 func (c *Config) LoadFeeds() {
 	raw, err := ioutil.ReadFile(c.FeedFile)
 	if err != nil {
-		fmt.Println("Error reading feed file: ", err)
+		fmt.Println("Error reading feed file:", err)
 		os.Exit(1)
 	}
 
 	if err = json.Unmarshal(raw, &c.Feeds); err != nil {
-		fmt.Println("Error reading feed file: ", err)
+		fmt.Println("Error reading feed file:", err)
 		os.Exit(1)
 	}
 }
@@ -352,7 +352,7 @@ func NewSubscription(config FeedConfig) Subscription {
 // getUpdates fetches feed updates for specified subscription
 func (s Subscription) getUpdates() []gofeed.Item {
 
-	fmt.Println("Get updates from ", s.config.URL)
+	fmt.Println("Get updates from", s.config.URL)
 
 	updates := make([]gofeed.Item, 0)
 
@@ -368,7 +368,7 @@ func (s Subscription) getUpdates() []gofeed.Item {
 		}
 	}
 
-	fmt.Println("Got ", len(updates), " updates from ", s.config.URL)
+	fmt.Println("Got", len(updates), "updates from", s.config.URL)
 
 	return updates
 }
