@@ -1,5 +1,11 @@
 # mattermost-rss-reader Changelog
 
+## Release v0.9 - XXXX-YY-ZZ
+
+* Use separate configurable `FeedFile` for saving new feeds added via Slash
+  Commands.
+  The configuration file is no longer edited by the application.
+
 ## Release v0.8 - 2018-12-30
 
 * Normalize capitalization of URL.

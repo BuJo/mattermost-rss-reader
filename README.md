@@ -45,7 +45,8 @@ Configuration is loaded from the included config.json.  Supply the following var
 5.  `Token`: Token for allowing slash commands to affect the configured feeds from Mattermost (optional).
 6.  `SkipInitial`: Allows the first articles to be discarded on application start (optional, `false` by default)
 7.  `Interval`: At which interval the feeds are polled (optional, `5m` by default).
-8.  `Feeds`: Collection of RSS URLs to poll.
+8.  `FeedFile`: Configure a separate file for feeds.  Configure this when using Slash Commands to edit the feed list.
+9.  `Feeds`: Collection of RSS URLs to poll.
     - `Name`: Used for displaying and identifying the feed
     - `URL`: which URL to pool.
     - `IconURL`: optional icon URL

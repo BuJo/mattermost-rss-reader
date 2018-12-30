@@ -36,8 +36,8 @@ type Config struct {
 	SkipInitial bool   `json:"SkipInitial"`
 	Interval    string `json:"Interval"`
 
-	// Application-Updated Configuration
-	Feeds []FeedConfig `json:"Feeds"`
+	FeedFile string       `json:"FeedFile"`
+	Feeds    []FeedConfig `json:"Feeds"`
 }
 
 // The FeedConfig holds information for a single Feed.
@@ -74,7 +74,7 @@ func main() {
 	flag.Parse()
 
 	if *printVersion {
-		fmt.Println("mattermost-rss-reader, version: " + Version)
+		fmt.Println("mattermost-rss-reader, version:", Version)
 		return
 	}
 
@@ -188,7 +188,7 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 
 			cfg.Feeds = append(cfg.Feeds, FeedConfig{Name: name, URL: url, IconURL: iconURL, Channel: channel})
 			fmt.Println("User", username, "in channel", channel, "added feed:", name, url)
-			cfg.Save()
+			cfg.SaveFeeds()
 
 			j, _ := json.Marshal(MattermostMessage{Message: "Added feed."})
 			w.Write(j)
@@ -201,7 +201,7 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 				}
 			}
 			cfg.Feeds = newlist
-			cfg.Save()
+			cfg.SaveFeeds()
 
 			j, _ := json.Marshal(MattermostMessage{Message: "Removed feed."})
 			w.Write(j)
@@ -259,7 +259,7 @@ func toMattermost(config *Config, msg MattermostMessage) {
 	json.NewEncoder(buff).Encode(msg)
 	response, err := http.Post(config.WebhookURL, "application/json;charset=utf-8", buff)
 	if err != nil {
-		fmt.Println("Error Posting message to Mattermost: ", err)
+		fmt.Println("Error Posting message to Mattermost:", err)
 		return
 	}
 	defer response.Body.Close()
@@ -269,12 +269,15 @@ func toMattermost(config *Config, msg MattermostMessage) {
 func LoadConfig(file string) *Config {
 	raw, err := ioutil.ReadFile(file)
 	if err != nil {
-		fmt.Println("Error reading config file: ", err)
+		fmt.Println("Error reading config file:", err)
 		os.Exit(1)
 	}
 	var config Config
 	config.file = file
-	json.Unmarshal(raw, &config)
+	if err = json.Unmarshal(raw, &config); err != nil {
+		fmt.Println("Error reading feed file:", err)
+		os.Exit(1)
+	}
 
 	interval, err := time.ParseDuration(config.Interval)
 	if err == nil && interval > 0 {
@@ -283,27 +286,61 @@ func LoadConfig(file string) *Config {
 		config.interval = 5 * time.Minute
 	}
 
+	if config.FeedFile != "" {
+		config.LoadFeeds()
+	}
+
 	fmt.Println("Loaded configuration.")
 	return &config
 }
 
-// Save will update the configuration with the current list of feeds.
-//
-// BUG(Jo): This will override the configuration with potentially old configuration.
-// BUG(Jo): Saving should be done atomically to avoid certain failure modes.
-func (c *Config) Save() {
-	raw, err := json.MarshalIndent(c, "", "  ")
+// LoadFeeds will load feeds from a separate feed file.
+func (c *Config) LoadFeeds() {
+	raw, err := ioutil.ReadFile(c.FeedFile)
 	if err != nil {
-		fmt.Println("Error serializing configuration", err)
+		fmt.Println("Error reading feed file:", err)
+		os.Exit(1)
+	}
+
+	if err = json.Unmarshal(raw, &c.Feeds); err != nil {
+		fmt.Println("Error reading feed file:", err)
+		os.Exit(1)
+	}
+}
+
+// SaveFeeds will save the current list of feeds.
+func (c *Config) SaveFeeds() {
+	if c.FeedFile == "" {
+		fmt.Println("Not saving feeds, configure `FeedFile`.")
+	}
+
+	raw, err := json.MarshalIndent(c.Feeds, "", "  ")
+	if err != nil {
+		fmt.Println("Error serializing feeds:", err)
 		return
 	}
 
-	err = ioutil.WriteFile(c.file, raw, 0640)
+	tmpfile, err := ioutil.TempFile("", "mamo-rss-reader")
 	if err != nil {
-		fmt.Println("Error writing config file: ", err)
+		fmt.Println("Error opening tempfile for saving feeds", err)
+		return
 	}
 
-	fmt.Println("Saved configuration.")
+	if _, err = tmpfile.Write(raw); err != nil {
+		fmt.Println("Error writing config file:", err)
+		return
+	}
+	if err = tmpfile.Close(); err != nil {
+		fmt.Println("Error writing config file:", err)
+		return
+	}
+
+	if err = os.Rename(tmpfile.Name(), c.FeedFile); err != nil {
+		fmt.Println("Error writing config file:", err)
+		return
+	}
+
+	fmt.Println("Saved feeds.")
 }
 
 // NewSubscription returns a new subscription for a given configuration.
@@ -315,7 +352,7 @@ func NewSubscription(config FeedConfig) Subscription {
 // getUpdates fetches feed updates for specified subscription
 func (s Subscription) getUpdates() []gofeed.Item {
 
-	fmt.Println("Get updates from ", s.config.URL)
+	fmt.Println("Get updates from", s.config.URL)
 
 	updates := make([]gofeed.Item, 0)
 
@@ -331,7 +368,7 @@ func (s Subscription) getUpdates() []gofeed.Item {
 		}
 	}
 
-	fmt.Println("Got ", len(updates), " updates from ", s.config.URL)
+	fmt.Println("Got", len(updates), "updates from", s.config.URL)
 
 	return updates
 }
