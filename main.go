@@ -299,7 +299,7 @@ func (c *Config) LoadFeeds() {
 	raw, err := ioutil.ReadFile(c.FeedFile)
 	if err != nil {
 		fmt.Println("Error reading feed file:", err)
-		os.Exit(1)
+		return
 	}
 
 	if err = json.Unmarshal(raw, &c.Feeds); err != nil {
