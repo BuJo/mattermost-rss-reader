@@ -36,8 +36,8 @@ type Config struct {
 	SkipInitial bool   `json:"SkipInitial"`
 	Interval    string `json:"Interval"`
 
-	// Application-Updated Configuration
-	Feeds []FeedConfig `json:"Feeds"`
+	FeedFile string       `json:"FeedFile"`
+	Feeds    []FeedConfig `json:"Feeds"`
 }
 
 // The FeedConfig holds information for a single Feed.
@@ -188,7 +188,7 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 
 			cfg.Feeds = append(cfg.Feeds, FeedConfig{Name: name, URL: url, IconURL: iconURL, Channel: channel})
 			fmt.Println("User", username, "in channel", channel, "added feed:", name, url)
-			cfg.Save()
+			cfg.SaveFeeds()
 
 			j, _ := json.Marshal(MattermostMessage{Message: "Added feed."})
 			w.Write(j)
@@ -201,7 +201,7 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 				}
 			}
 			cfg.Feeds = newlist
-			cfg.Save()
+			cfg.SaveFeeds()
 
 			j, _ := json.Marshal(MattermostMessage{Message: "Removed feed."})
 			w.Write(j)
@@ -274,7 +274,10 @@ func LoadConfig(file string) *Config {
 	}
 	var config Config
 	config.file = file
-	json.Unmarshal(raw, &config)
+	if err = json.Unmarshal(raw, &config); err != nil {
+		fmt.Println("Error reading feed file: ", err)
+		os.Exit(1)
+	}
 
 	interval, err := time.ParseDuration(config.Interval)
 	if err == nil && interval > 0 {
@@ -283,24 +286,43 @@ func LoadConfig(file string) *Config {
 		config.interval = 5 * time.Minute
 	}
 
+	if config.FeedFile != "" {
+		config.LoadFeeds()
+	}
+
 	fmt.Println("Loaded configuration.")
 	return &config
 }
 
-// Save will update the configuration with the current list of feeds.
+// LoadFeeds will load feeds from a separate feed file.
+func (c *Config) LoadFeeds() {
+	raw, err := ioutil.ReadFile(c.FeedFile)
+	if err != nil {
+		fmt.Println("Error reading feed file: ", err)
+		os.Exit(1)
+	}
+
+	if err = json.Unmarshal(raw, &c.Feeds); err != nil {
+		fmt.Println("Error reading feed file: ", err)
+		os.Exit(1)
+	}
+}
+
+// SaveFeeds will save the current list of feeds.
 //
 // BUG(Jo): Saving should be done atomically to avoid certain failure modes.
-func (c *Config) Save() {
-	diskcfg := LoadConfig(c.file)
-	diskcfg.Feeds = c.Feeds
+func (c *Config) SaveFeeds() {
+	if c.FeedFile == "" {
+		fmt.Println("Not saving feeds, configure `FeedFile`.")
+	}
 
-	raw, err := json.MarshalIndent(diskcfg, "", "  ")
+	raw, err := json.MarshalIndent(c.Feeds, "", "  ")
 	if err != nil {
 		fmt.Println("Error serializing configuration", err)
 		return
 	}
 
-	err = ioutil.WriteFile(diskcfg.file, raw, 0640)
+	err = ioutil.WriteFile(c.FeedFile, raw, 0640)
 	if err != nil {
 		fmt.Println("Error writing config file: ", err)
 	}
