@@ -16,9 +16,9 @@ import (
 )
 
 type Subscription struct {
-	fp      *gofeed.Parser
+	parser  *gofeed.Parser
 	config  FeedConfig
-	Updates []gofeed.Item
+	updates []gofeed.Item
 }
 
 type Config struct {
@@ -26,7 +26,7 @@ type Config struct {
 	shownFeeds map[[sha1.Size]byte]bool
 	interval   time.Duration
 
-	WebhookUrl  string `json:"WebhookUrl"`
+	WebhookURL  string `json:"WebhookURL"`
 	Token       string `json:"Token,omitempty"`
 	Channel     string `json:"Channel"`
 	IconURL     string `json:"IconURL,omitempty"`
@@ -40,8 +40,8 @@ type Config struct {
 
 type FeedConfig struct {
 	Name     string `json:"Name,omitempty"`
-	Url      string `json:"Url"`
-	IconUrl  string `json:"IconUrl,omitempty"`
+	URL      string `json:"URL"`
+	IconURL  string `json:"IconUrl,omitempty"`
 	Username string `json:"Username,omitempty"`
 	Channel  string `json:"Channel,omitempty"`
 }
@@ -118,7 +118,7 @@ func run(cfg *Config, subscriptions []Subscription, ch chan<- FeedItem) {
 	for _, subscription := range subscriptions {
 		updates := subscription.getUpdates()
 		for _, update := range updates {
-			hsh := sha1.Sum(append([]byte(update.Title), []byte(subscription.config.Url)...))
+			hsh := sha1.Sum(append([]byte(update.Title), []byte(subscription.config.URL)...))
 
 			shownFeeds[hsh] = true
 
@@ -157,7 +157,7 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 		switch action {
 		case "add":
 			if len(tokens) < 3 {
-				j, _ := json.Marshal(MattermostMessage{Message: "Usage: add <name> <url> [iconUrl]"})
+				j, _ := json.Marshal(MattermostMessage{Message: "Usage: add <name> <url> [iconURL]"})
 				w.Write(j)
 				w.WriteHeader(http.StatusNotAcceptable)
 				return
@@ -167,13 +167,13 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 			channel := r.PostFormValue("channel_name")
 			name := tokens[1]
 			url := tokens[2]
-			iconUrl := ""
+			iconURL := ""
 
 			if len(tokens) >= 4 {
-				iconUrl = tokens[3]
+				iconURL = tokens[3]
 			}
 
-			cfg.Feeds = append(cfg.Feeds, FeedConfig{Name: name, Url: url, IconUrl: iconUrl, Channel: channel})
+			cfg.Feeds = append(cfg.Feeds, FeedConfig{Name: name, URL: url, IconURL: iconURL, Channel: channel})
 			fmt.Println("User", username, "in channel", channel, "added feed:", name, url)
 			cfg.Save()
 
@@ -193,7 +193,7 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 		case "list":
 			str := ""
 			for _, f := range cfg.Feeds {
-				str += "* " + f.Name + " (" + f.Url + ")\n"
+				str += "* " + f.Name + " (" + f.URL + ")\n"
 			}
 			j, _ := json.Marshal(MattermostMessage{Message: str})
 			w.Write(j)
@@ -220,7 +220,7 @@ func feedItemToMessage(item FeedItem) MattermostMessage {
 		message = fmt.Sprintf("[%s](%s)", item.Title, item.Link)
 	}
 
-	return MattermostMessage{item.Channel, item.Username, item.IconUrl, message}
+	return MattermostMessage{item.Channel, item.Username, item.IconURL, message}
 }
 
 //send a message to mattermost
@@ -240,7 +240,7 @@ func toMattermost(config *Config, msg MattermostMessage) {
 
 	buff := new(bytes.Buffer)
 	json.NewEncoder(buff).Encode(msg)
-	response, err := http.Post(config.WebhookUrl, "application/json;charset=utf-8", buff)
+	response, err := http.Post(config.WebhookURL, "application/json;charset=utf-8", buff)
 	if err != nil {
 		fmt.Println("Error Posting message to Mattermost: ", err)
 		return
@@ -294,11 +294,11 @@ func NewSubscription(config FeedConfig) Subscription {
 //fetch feed updates for specified subscription
 func (s Subscription) getUpdates() []gofeed.Item {
 
-	fmt.Println("Get updates from ", s.config.Url)
+	fmt.Println("Get updates from ", s.config.URL)
 
 	updates := make([]gofeed.Item, 0)
 
-	feed, err := s.fp.ParseURL(s.config.Url)
+	feed, err := s.parser.ParseURL(s.config.URL)
 	if err != nil {
 		fmt.Println(err)
 		return updates
@@ -310,7 +310,7 @@ func (s Subscription) getUpdates() []gofeed.Item {
 		}
 	}
 
-	fmt.Println("Got ", len(updates), " updates from ", s.config.Url)
+	fmt.Println("Got ", len(updates), " updates from ", s.config.URL)
 
 	return updates
 }
