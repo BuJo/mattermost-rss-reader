@@ -270,6 +270,8 @@ func LoadConfig(file string) *Config {
 	return &config
 }
 
+// BUG(Jo): This will override the configuration with potentially old configuration.
+// BUG(Jo): Saving should be done atomically to avoid certain failure modes.
 func (c *Config) Save() {
 	raw, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
@@ -277,7 +279,6 @@ func (c *Config) Save() {
 		return
 	}
 
-	// XXX: Fail, atomic move
 	err = ioutil.WriteFile(c.file, raw, 0640)
 	if err != nil {
 		fmt.Println("Error writing config file: ", err)
