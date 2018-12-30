@@ -306,6 +306,15 @@ func (c *Config) LoadFeeds() {
 		fmt.Println("Error reading feed file:", err)
 		os.Exit(1)
 	}
+
+	// Remove bad feeds
+	newlist := make([]FeedConfig, 0, len(c.Feeds))
+	for _, f := range c.Feeds {
+		if f.URL != "" {
+			newlist = append(newlist, f)
+		}
+	}
+	c.Feeds = newlist
 }
 
 // SaveFeeds will save the current list of feeds.
