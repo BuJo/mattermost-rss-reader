@@ -1,6 +1,6 @@
 # mattermost-rss-reader Changelog
 
-## Release v0.9 - XXXX-YY-ZZ
+## Release v0.9 - 2018-12-30
 
 * Use separate configurable `FeedFile` for saving new feeds added via Slash
   Commands.
