@@ -14,7 +14,7 @@ fmt: *.go
 check: *.go
 	@test -z $(shell gofmt -l $? | tee /dev/stderr) || echo "[WARN] Fix formatting issues with 'make fmt'"
 	@which golint >/dev/null 2>&1 && golint $? || true
-	@go tool vet $?
+	@go vet $?
 
 clean:
 	@rm -f mattermost-rss-reader
