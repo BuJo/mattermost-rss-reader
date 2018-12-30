@@ -16,7 +16,7 @@ This utility will parse Atom/RSS feeds and post updates to a Mattermost channel.
       - Display Name: Xkcd
       - Description: Xkcd
       - Channel: Name of the channel you want to post into
-    - Copy the webhook URL generated into the `WebhookUrl` property in `config.json`.
+    - Copy the webhook URL generated into the `WebhookURL` property in `config.json`.
 
 If you want to allow Mattermost users to configure the feeds, also configure a Slash command:
 
@@ -32,22 +32,25 @@ If you want to allow Mattermost users to configure the feeds, also configure a S
       - Autocomplete Hint: `list | add <Feed Name> <Feed URL> [<Image URL>]`
     - Copy the Token from the resulting Slash Command into the `Token` property in `config.json`
 
+Using e.g. `/feed add Xkcd https://xkcd.com/rss.xml` in a suitable channel will then post Xkcd
+updates to this channel.
+
 ## Config Requirements
 
 Configuration is loaded from the included config.json.  Supply the following variables:
 
-1.  WebhookUrl - URL to post the messages to Mattermost
-3.  IconUrl - URL to an image to use for the icon for each post (optional, can be overridden in feed).
-4.  Username - Username the post will be displayed as (optional, can be overridden in feed).
-5.  Token - Token for allowing slash commands to affect the configured feeds from Mattermost (optional).
-6.  SkipInitial - Allows the first articles to be discarded on application start (optional, `false` by default)
-7.  Interval - At which interval the feeds are polled (optional, `5m` by default).
-8.  Feeds - Collection of RSS URLs to poll.
-    - Name - Used for displaying and identifying the feed
-    - Url - which URL to pool.
-    - IconUrl - optional icon URL
-    - Username - optional username
-    - Channel - optional channel name
+1.  `WebhookURL`: URL to post the messages to Mattermost
+3.  `IconURL`: URL to an image to use for the icon for each post (optional, can be overridden in feed).
+4.  `Username`: Username the post will be displayed as (optional, can be overridden in feed).
+5.  `Token`: Token for allowing slash commands to affect the configured feeds from Mattermost (optional).
+6.  `SkipInitial`: Allows the first articles to be discarded on application start (optional, `false` by default)
+7.  `Interval`: At which interval the feeds are polled (optional, `5m` by default).
+8.  `Feeds`: Collection of RSS URLs to poll.
+    - `Name`: Used for displaying and identifying the feed
+    - `URL`: which URL to pool.
+    - `IconURL`: optional icon URL
+    - `Username`: optional username
+    - `Channel`: optional channel name
 
 ## Docker
 
