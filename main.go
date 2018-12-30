@@ -194,7 +194,7 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 			w.Write(j)
 		case "remove":
 			name := tokens[1]
-			newlist := make([]FeedConfig, len(cfg.Feeds)-1)
+			newlist := make([]FeedConfig, 0, len(cfg.Feeds)-1)
 			for _, f := range cfg.Feeds {
 				if f.Name != name {
 					newlist = append(newlist, f)
