@@ -1,6 +1,6 @@
-GIT_COMMIT=$(shell git rev-list -1 --abbrev-commit HEAD)
-GIT_TAG=$(shell git describe --abbrev=0 --tags)
-release=$(GIT_TAG)-$(GIT_COMMIT)
+GIT_COMMIT := $(shell git rev-list -1 --abbrev-commit HEAD)
+GIT_TAG := $(shell git describe --abbrev=0 --tags)
+release ?= $(GIT_TAG)-$(GIT_COMMIT)
 
 .PHONY: fmt all clean check
 all: check mattermost-rss-reader
