@@ -15,18 +15,20 @@ import (
 	"github.com/mmcdole/gofeed"
 )
 
+// A Subscription holds the configuration to fetch updates from a single URL.
 type Subscription struct {
-	fp      *gofeed.Parser
+	parser  *gofeed.Parser
 	config  FeedConfig
-	Updates []gofeed.Item
+	updates []gofeed.Item
 }
 
+// The Config holds the configuration and state for this application.
 type Config struct {
 	file       string
 	shownFeeds map[[sha1.Size]byte]bool
 	interval   time.Duration
 
-	WebhookUrl  string `json:"WebhookUrl"`
+	WebhookURL  string `json:"WebhookURL"`
 	Token       string `json:"Token,omitempty"`
 	Channel     string `json:"Channel"`
 	IconURL     string `json:"IconURL,omitempty"`
@@ -38,19 +40,22 @@ type Config struct {
 	Feeds []FeedConfig `json:"Feeds"`
 }
 
+// The FeedConfig holds information for a single Feed.
 type FeedConfig struct {
 	Name     string `json:"Name,omitempty"`
-	Url      string `json:"Url"`
-	IconUrl  string `json:"IconUrl,omitempty"`
+	URL      string `json:"URL"`
+	IconURL  string `json:"IconUrl,omitempty"`
 	Username string `json:"Username,omitempty"`
 	Channel  string `json:"Channel,omitempty"`
 }
 
+// The FeedItem hold information for a single feed update.
 type FeedItem struct {
 	gofeed.Item
 	FeedConfig
 }
 
+// The MattermostMessage for talking to the Mattermost API.
 type MattermostMessage struct {
 	Channel  string `json:"channel,omitempty"`
 	Username string `json:"username,omitempty"`
@@ -58,6 +63,7 @@ type MattermostMessage struct {
 	Message  string `json:"text"`
 }
 
+// Version of this application.
 var Version = "development"
 
 func main() {
@@ -107,6 +113,7 @@ func main() {
 	}
 }
 
+// run fetches all new feed items from subscriptions.
 func run(cfg *Config, subscriptions []Subscription, ch chan<- FeedItem) {
 
 	initialRun := false
@@ -118,7 +125,7 @@ func run(cfg *Config, subscriptions []Subscription, ch chan<- FeedItem) {
 	for _, subscription := range subscriptions {
 		updates := subscription.getUpdates()
 		for _, update := range updates {
-			hsh := sha1.Sum(append([]byte(update.Title), []byte(subscription.config.Url)...))
+			hsh := sha1.Sum(append([]byte(update.Title), []byte(subscription.config.URL)...))
 
 			shownFeeds[hsh] = true
 
@@ -138,6 +145,12 @@ func run(cfg *Config, subscriptions []Subscription, ch chan<- FeedItem) {
 	cfg.shownFeeds = shownFeeds
 }
 
+// feedCommandHandler handles HTTP requests according to the slash command
+// documentation from mattermost.
+// See https://docs.mattermost.com/developer/slash-commands.html fore more
+// documentation.
+//
+// BUG(Jo): The remove command does not work as expected.
 func feedCommandHandler(cfg *Config) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -157,7 +170,7 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 		switch action {
 		case "add":
 			if len(tokens) < 3 {
-				j, _ := json.Marshal(MattermostMessage{Message: "Usage: add <name> <url> [iconUrl]"})
+				j, _ := json.Marshal(MattermostMessage{Message: "Usage: add <name> <url> [iconURL]"})
 				w.Write(j)
 				w.WriteHeader(http.StatusNotAcceptable)
 				return
@@ -167,13 +180,13 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 			channel := r.PostFormValue("channel_name")
 			name := tokens[1]
 			url := tokens[2]
-			iconUrl := ""
+			iconURL := ""
 
 			if len(tokens) >= 4 {
-				iconUrl = tokens[3]
+				iconURL = tokens[3]
 			}
 
-			cfg.Feeds = append(cfg.Feeds, FeedConfig{Name: name, Url: url, IconUrl: iconUrl, Channel: channel})
+			cfg.Feeds = append(cfg.Feeds, FeedConfig{Name: name, URL: url, IconURL: iconURL, Channel: channel})
 			fmt.Println("User", username, "in channel", channel, "added feed:", name, url)
 			cfg.Save()
 
@@ -193,7 +206,7 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 		case "list":
 			str := ""
 			for _, f := range cfg.Feeds {
-				str += "* " + f.Name + " (" + f.Url + ")\n"
+				str += "* " + f.Name + " (" + f.URL + ")\n"
 			}
 			j, _ := json.Marshal(MattermostMessage{Message: str})
 			w.Write(j)
@@ -207,10 +220,12 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 	}
 }
 
+// NewFeedItem encapsulates a feed item to be published to Mattermost.
 func NewFeedItem(sub Subscription, item gofeed.Item) FeedItem {
 	return FeedItem{item, sub.config}
 }
 
+// feedItemToMessage formats a feed to be able to present it in Mattermost.
 func feedItemToMessage(item FeedItem) MattermostMessage {
 	var message string
 
@@ -220,10 +235,10 @@ func feedItemToMessage(item FeedItem) MattermostMessage {
 		message = fmt.Sprintf("[%s](%s)", item.Title, item.Link)
 	}
 
-	return MattermostMessage{item.Channel, item.Username, item.IconUrl, message}
+	return MattermostMessage{item.Channel, item.Username, item.IconURL, message}
 }
 
-//send a message to mattermost
+// toMattermost sends a message to mattermost.
 func toMattermost(config *Config, msg MattermostMessage) {
 
 	if msg.Channel == "" {
@@ -240,7 +255,7 @@ func toMattermost(config *Config, msg MattermostMessage) {
 
 	buff := new(bytes.Buffer)
 	json.NewEncoder(buff).Encode(msg)
-	response, err := http.Post(config.WebhookUrl, "application/json;charset=utf-8", buff)
+	response, err := http.Post(config.WebhookURL, "application/json;charset=utf-8", buff)
 	if err != nil {
 		fmt.Println("Error Posting message to Mattermost: ", err)
 		return
@@ -248,7 +263,7 @@ func toMattermost(config *Config, msg MattermostMessage) {
 	defer response.Body.Close()
 }
 
-//Returns the config from json
+// LoadConfig returns the config from json.
 func LoadConfig(file string) *Config {
 	raw, err := ioutil.ReadFile(file)
 	if err != nil {
@@ -270,6 +285,10 @@ func LoadConfig(file string) *Config {
 	return &config
 }
 
+// Save will update the configuration with the current list of feeds.
+//
+// BUG(Jo): This will override the configuration with potentially old configuration.
+// BUG(Jo): Saving should be done atomically to avoid certain failure modes.
 func (c *Config) Save() {
 	raw, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
@@ -277,7 +296,6 @@ func (c *Config) Save() {
 		return
 	}
 
-	// XXX: Fail, atomic move
 	err = ioutil.WriteFile(c.file, raw, 0640)
 	if err != nil {
 		fmt.Println("Error writing config file: ", err)
@@ -286,19 +304,20 @@ func (c *Config) Save() {
 	fmt.Println("Saved configuration.")
 }
 
+// NewSubscription returns a new subscription for a given configuration.
 func NewSubscription(config FeedConfig) Subscription {
 	fp := gofeed.NewParser()
 	return Subscription{fp, config, make([]gofeed.Item, 0)}
 }
 
-//fetch feed updates for specified subscription
+// getUpdates fetches feed updates for specified subscription
 func (s Subscription) getUpdates() []gofeed.Item {
 
-	fmt.Println("Get updates from ", s.config.Url)
+	fmt.Println("Get updates from ", s.config.URL)
 
 	updates := make([]gofeed.Item, 0)
 
-	feed, err := s.fp.ParseURL(s.config.Url)
+	feed, err := s.parser.ParseURL(s.config.URL)
 	if err != nil {
 		fmt.Println(err)
 		return updates
@@ -310,7 +329,7 @@ func (s Subscription) getUpdates() []gofeed.Item {
 		}
 	}
 
-	fmt.Println("Got ", len(updates), " updates from ", s.config.Url)
+	fmt.Println("Got ", len(updates), " updates from ", s.config.URL)
 
 	return updates
 }
