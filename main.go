@@ -15,12 +15,14 @@ import (
 	"github.com/mmcdole/gofeed"
 )
 
+// A Subscription holds the configuration to fetch updates from a single URL.
 type Subscription struct {
 	parser  *gofeed.Parser
 	config  FeedConfig
 	updates []gofeed.Item
 }
 
+// The Config holds the configuration and state for this application.
 type Config struct {
 	file       string
 	shownFeeds map[[sha1.Size]byte]bool
@@ -38,6 +40,7 @@ type Config struct {
 	Feeds []FeedConfig `json:"Feeds"`
 }
 
+// The FeedConfig holds information for a single Feed.
 type FeedConfig struct {
 	Name     string `json:"Name,omitempty"`
 	URL      string `json:"URL"`
@@ -46,11 +49,13 @@ type FeedConfig struct {
 	Channel  string `json:"Channel,omitempty"`
 }
 
+// The FeedItem hold information for a single feed update.
 type FeedItem struct {
 	gofeed.Item
 	FeedConfig
 }
 
+// The MattermostMessage for talking to the Mattermost API.
 type MattermostMessage struct {
 	Channel  string `json:"channel,omitempty"`
 	Username string `json:"username,omitempty"`
@@ -58,6 +63,7 @@ type MattermostMessage struct {
 	Message  string `json:"text"`
 }
 
+// Version of this application.
 var Version = "development"
 
 func main() {
@@ -107,6 +113,7 @@ func main() {
 	}
 }
 
+// run fetches all new feed items from subscriptions.
 func run(cfg *Config, subscriptions []Subscription, ch chan<- FeedItem) {
 
 	initialRun := false
@@ -138,6 +145,12 @@ func run(cfg *Config, subscriptions []Subscription, ch chan<- FeedItem) {
 	cfg.shownFeeds = shownFeeds
 }
 
+// feedCommandHandler handles HTTP requests according to the slash command
+// documentation from mattermost.
+// See https://docs.mattermost.com/developer/slash-commands.html fore more
+// documentation.
+//
+// BUG(Jo): The remove command does not work as expected.
 func feedCommandHandler(cfg *Config) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -207,10 +220,12 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 	}
 }
 
+// NewFeedItem encapsulates a feed item to be published to Mattermost.
 func NewFeedItem(sub Subscription, item gofeed.Item) FeedItem {
 	return FeedItem{item, sub.config}
 }
 
+// feedItemToMessage formats a feed to be able to present it in Mattermost.
 func feedItemToMessage(item FeedItem) MattermostMessage {
 	var message string
 
@@ -223,7 +238,7 @@ func feedItemToMessage(item FeedItem) MattermostMessage {
 	return MattermostMessage{item.Channel, item.Username, item.IconURL, message}
 }
 
-//send a message to mattermost
+// toMattermost sends a message to mattermost.
 func toMattermost(config *Config, msg MattermostMessage) {
 
 	if msg.Channel == "" {
@@ -248,7 +263,7 @@ func toMattermost(config *Config, msg MattermostMessage) {
 	defer response.Body.Close()
 }
 
-//Returns the config from json
+// LoadConfig returns the config from json.
 func LoadConfig(file string) *Config {
 	raw, err := ioutil.ReadFile(file)
 	if err != nil {
@@ -270,6 +285,8 @@ func LoadConfig(file string) *Config {
 	return &config
 }
 
+// Save will update the configuration with the current list of feeds.
+//
 // BUG(Jo): This will override the configuration with potentially old configuration.
 // BUG(Jo): Saving should be done atomically to avoid certain failure modes.
 func (c *Config) Save() {
@@ -287,12 +304,13 @@ func (c *Config) Save() {
 	fmt.Println("Saved configuration.")
 }
 
+// NewSubscription returns a new subscription for a given configuration.
 func NewSubscription(config FeedConfig) Subscription {
 	fp := gofeed.NewParser()
 	return Subscription{fp, config, make([]gofeed.Item, 0)}
 }
 
-//fetch feed updates for specified subscription
+// getUpdates fetches feed updates for specified subscription
 func (s Subscription) getUpdates() []gofeed.Item {
 
 	fmt.Println("Get updates from ", s.config.URL)
