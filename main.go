@@ -150,7 +150,7 @@ func run(cfg *Config, subscriptions []Subscription, ch chan<- FeedItem) {
 // See https://docs.mattermost.com/developer/slash-commands.html fore more
 // documentation.
 //
-// BUG(Jo): The remove command does not work as expected.
+// BUG(Jo): Multiple feeds with the same name can be added.
 func feedCommandHandler(cfg *Config) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -193,12 +193,14 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 			j, _ := json.Marshal(MattermostMessage{Message: "Added feed."})
 			w.Write(j)
 		case "remove":
+			name := tokens[1]
 			newlist := make([]FeedConfig, len(cfg.Feeds)-1)
 			for _, f := range cfg.Feeds {
-				if f.Name != tokens[1] {
+				if f.Name != name {
 					newlist = append(newlist, f)
 				}
 			}
+			cfg.Feeds = newlist
 			cfg.Save()
 
 			j, _ := json.Marshal(MattermostMessage{Message: "Removed feed."})

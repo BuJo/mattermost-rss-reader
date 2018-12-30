@@ -29,7 +29,7 @@ If you want to allow Mattermost users to configure the feeds, also configure a S
       - Request URL: https:// URL to mattermost-rss-reader
       - Request Method: POST
       - Autocomplete: true
-      - Autocomplete Hint: `list | add <Feed Name> <Feed URL> [<Image URL>]`
+      - Autocomplete Hint: `list | add <Feed Name> <Feed URL> [<Image URL>] | remove <Feed name>`
     - Copy the Token from the resulting Slash Command into the `Token` property in `config.json`
 
 Using e.g. `/feed add Xkcd https://xkcd.com/rss.xml` in a suitable channel will then post Xkcd
