@@ -289,16 +289,18 @@ func LoadConfig(file string) *Config {
 
 // Save will update the configuration with the current list of feeds.
 //
-// BUG(Jo): This will override the configuration with potentially old configuration.
 // BUG(Jo): Saving should be done atomically to avoid certain failure modes.
 func (c *Config) Save() {
-	raw, err := json.MarshalIndent(c, "", "  ")
+	diskcfg := LoadConfig(c.file)
+	diskcfg.Feeds = c.Feeds
+
+	raw, err := json.MarshalIndent(diskcfg, "", "  ")
 	if err != nil {
 		fmt.Println("Error serializing configuration", err)
 		return
 	}
 
-	err = ioutil.WriteFile(c.file, raw, 0640)
+	err = ioutil.WriteFile(diskcfg.file, raw, 0640)
 	if err != nil {
 		fmt.Println("Error writing config file: ", err)
 	}
