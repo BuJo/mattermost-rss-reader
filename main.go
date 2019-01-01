@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/mmcdole/gofeed"
 )
 
@@ -27,6 +28,7 @@ type Config struct {
 	file       string
 	shownFeeds map[[sha1.Size]byte]bool
 	interval   time.Duration
+	sanitizer  *bluemonday.Policy
 
 	WebhookURL  string `json:"WebhookURL"`
 	Token       string `json:"Token,omitempty"`
@@ -64,6 +66,8 @@ type MattermostMessage struct {
 	Message     string                 `json:"text,omitempty"`
 	Attachments []MattermostAttachment `json:"attachments,omitempty"`
 }
+
+// The MattermostAttachment enables posting richer content to the Mattermost API.
 type MattermostAttachment struct {
 	Fallback   string `json:"fallback"`
 	Color      string `json:"color,omitempty"`
@@ -239,7 +243,7 @@ func NewFeedItem(sub Subscription, item gofeed.Item) FeedItem {
 }
 
 // itemToSimpleMessage formats a feed to be able to present it in Mattermost.
-func itemToSimpleMessage(item FeedItem) MattermostMessage {
+func itemToSimpleMessage(config *Config, item FeedItem) MattermostMessage {
 	var message string
 
 	if item.Image != nil {
@@ -248,19 +252,20 @@ func itemToSimpleMessage(item FeedItem) MattermostMessage {
 		message = fmt.Sprintf("[%s](%s)", item.Title, item.Link)
 	}
 
+	message = config.sanitizer.Sanitize(message)
+
 	return MattermostMessage{Channel: item.Channel, Username: item.Username, Icon: item.IconURL, Message: message}
 }
 
 // itemToDetailedMessage formats a feed to be able to present it in Mattermost.
 //
-// BUG(Jo): Note that this leaves the possibility of XSS, use bluemonday conversion.
 // BUG(Jo): This will potentially post HTML to Mattermost, use markdown conversion.
-func itemToDetailedMessage(item FeedItem) MattermostMessage {
+func itemToDetailedMessage(config *Config, item FeedItem) MattermostMessage {
 	attachment := MattermostAttachment{
-		Fallback:  item.Title,
-		Title:     item.Title,
+		Fallback:  config.sanitizer.Sanitize(item.Title),
+		Title:     config.sanitizer.Sanitize(item.Title),
 		TitleLink: item.Link,
-		Text:      item.Description,
+		Text:      config.sanitizer.Sanitize(item.Description),
 	}
 
 	if item.Author != nil {
@@ -280,9 +285,9 @@ func toMattermost(config *Config, item FeedItem) {
 	var msg MattermostMessage
 
 	if config.Detailed {
-		msg = itemToDetailedMessage(item)
+		msg = itemToDetailedMessage(config, item)
 	} else {
-		msg = itemToSimpleMessage(item)
+		msg = itemToSimpleMessage(config, item)
 	}
 
 	if msg.Channel == "" {
@@ -331,6 +336,8 @@ func LoadConfig(file string) *Config {
 	if config.FeedFile != "" {
 		config.LoadFeeds()
 	}
+
+	config.sanitizer = bluemonday.UGCPolicy()
 
 	fmt.Println("Loaded configuration.")
 	return &config
