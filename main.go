@@ -35,6 +35,7 @@ type Config struct {
 	Username    string `json:"Username"`
 	SkipInitial bool   `json:"SkipInitial"`
 	Interval    string `json:"Interval"`
+	Detailed    bool   `json:"Detailed"`
 
 	FeedFile string       `json:"FeedFile"`
 	Feeds    []FeedConfig `json:"Feeds"`
@@ -57,10 +58,20 @@ type FeedItem struct {
 
 // The MattermostMessage for talking to the Mattermost API.
 type MattermostMessage struct {
-	Channel  string `json:"channel,omitempty"`
-	Username string `json:"username,omitempty"`
-	Icon     string `json:"icon_url,omitempty"`
-	Message  string `json:"text"`
+	Channel     string                 `json:"channel,omitempty"`
+	Username    string                 `json:"username,omitempty"`
+	Icon        string                 `json:"icon_url,omitempty"`
+	Message     string                 `json:"text,omitempty"`
+	Attachments []MattermostAttachment `json:"attachments,omitempty"`
+}
+type MattermostAttachment struct {
+	Fallback   string `json:"fallback"`
+	Color      string `json:"color,omitempty"`
+	Title      string `json:"title,omitempty"`
+	TitleLink  string `json:"title_link,omitempty"`
+	Text       string `json:"text,omitempty"`
+	AuthorName string `json:"author_name,omitempty"`
+	ThumbURL   string `json:"thumb_url,omitempty"`
 }
 
 // Version of this application.
@@ -108,7 +119,7 @@ func main() {
 		case <-updateTimer:
 			run(cfg, subscriptions, feedItems)
 		case item := <-feedItems:
-			toMattermost(cfg, feedItemToMessage(item))
+			toMattermost(cfg, item)
 		}
 	}
 }
@@ -227,8 +238,8 @@ func NewFeedItem(sub Subscription, item gofeed.Item) FeedItem {
 	return FeedItem{item, sub.config}
 }
 
-// feedItemToMessage formats a feed to be able to present it in Mattermost.
-func feedItemToMessage(item FeedItem) MattermostMessage {
+// itemToSimpleMessage formats a feed to be able to present it in Mattermost.
+func itemToSimpleMessage(item FeedItem) MattermostMessage {
 	var message string
 
 	if item.Image != nil {
@@ -237,11 +248,42 @@ func feedItemToMessage(item FeedItem) MattermostMessage {
 		message = fmt.Sprintf("[%s](%s)", item.Title, item.Link)
 	}
 
-	return MattermostMessage{item.Channel, item.Username, item.IconURL, message}
+	return MattermostMessage{Channel: item.Channel, Username: item.Username, Icon: item.IconURL, Message: message}
+}
+
+// itemToDetailedMessage formats a feed to be able to present it in Mattermost.
+//
+// BUG(Jo): Note that this leaves the possibility of XSS, use bluemonday conversion.
+// BUG(Jo): This will potentially post HTML to Mattermost, use markdown conversion.
+func itemToDetailedMessage(item FeedItem) MattermostMessage {
+	attachment := MattermostAttachment{
+		Fallback:  item.Title,
+		Title:     item.Title,
+		TitleLink: item.Link,
+		Text:      item.Description,
+	}
+
+	if item.Author != nil {
+		attachment.AuthorName = item.Author.Name
+	}
+
+	if item.Image != nil {
+		attachment.ThumbURL = item.Image.URL
+	}
+
+	return MattermostMessage{Channel: item.Channel, Username: item.Username, Icon: item.IconURL, Attachments: []MattermostAttachment{attachment}}
 }
 
 // toMattermost sends a message to mattermost.
-func toMattermost(config *Config, msg MattermostMessage) {
+func toMattermost(config *Config, item FeedItem) {
+
+	var msg MattermostMessage
+
+	if config.Detailed {
+		msg = itemToDetailedMessage(item)
+	} else {
+		msg = itemToSimpleMessage(item)
+	}
 
 	if msg.Channel == "" {
 		msg.Channel = config.Channel
