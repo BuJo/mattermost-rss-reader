@@ -258,8 +258,6 @@ func itemToSimpleMessage(config *Config, item FeedItem) MattermostMessage {
 }
 
 // itemToDetailedMessage formats a feed to be able to present it in Mattermost.
-//
-// BUG(Jo): This will potentially post HTML to Mattermost, use markdown conversion.
 func itemToDetailedMessage(config *Config, item FeedItem) MattermostMessage {
 	attachment := MattermostAttachment{
 		Fallback:  config.sanitizer.Sanitize(item.Title),
@@ -337,7 +335,7 @@ func LoadConfig(file string) *Config {
 		config.LoadFeeds()
 	}
 
-	config.sanitizer = bluemonday.UGCPolicy()
+	config.sanitizer = bluemonday.StrictPolicy()
 
 	fmt.Println("Loaded configuration.")
 	return &config
