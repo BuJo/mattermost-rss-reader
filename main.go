@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/mmcdole/gofeed"
 )
 
@@ -27,6 +28,7 @@ type Config struct {
 	file       string
 	shownFeeds map[[sha1.Size]byte]bool
 	interval   time.Duration
+	sanitizer  *bluemonday.Policy
 
 	WebhookURL  string `json:"WebhookURL"`
 	Token       string `json:"Token,omitempty"`
@@ -35,6 +37,7 @@ type Config struct {
 	Username    string `json:"Username"`
 	SkipInitial bool   `json:"SkipInitial"`
 	Interval    string `json:"Interval"`
+	Detailed    bool   `json:"Detailed"`
 
 	FeedFile string       `json:"FeedFile"`
 	Feeds    []FeedConfig `json:"Feeds"`
@@ -57,10 +60,22 @@ type FeedItem struct {
 
 // The MattermostMessage for talking to the Mattermost API.
 type MattermostMessage struct {
-	Channel  string `json:"channel,omitempty"`
-	Username string `json:"username,omitempty"`
-	Icon     string `json:"icon_url,omitempty"`
-	Message  string `json:"text"`
+	Channel     string                 `json:"channel,omitempty"`
+	Username    string                 `json:"username,omitempty"`
+	Icon        string                 `json:"icon_url,omitempty"`
+	Message     string                 `json:"text,omitempty"`
+	Attachments []MattermostAttachment `json:"attachments,omitempty"`
+}
+
+// The MattermostAttachment enables posting richer content to the Mattermost API.
+type MattermostAttachment struct {
+	Fallback   string `json:"fallback"`
+	Color      string `json:"color,omitempty"`
+	Title      string `json:"title,omitempty"`
+	TitleLink  string `json:"title_link,omitempty"`
+	Text       string `json:"text,omitempty"`
+	AuthorName string `json:"author_name,omitempty"`
+	ThumbURL   string `json:"thumb_url,omitempty"`
 }
 
 // Version of this application.
@@ -108,7 +123,7 @@ func main() {
 		case <-updateTimer:
 			run(cfg, subscriptions, feedItems)
 		case item := <-feedItems:
-			toMattermost(cfg, feedItemToMessage(item))
+			toMattermost(cfg, item)
 		}
 	}
 }
@@ -236,8 +251,8 @@ func NewFeedItem(sub Subscription, item gofeed.Item) FeedItem {
 	return FeedItem{item, sub.config}
 }
 
-// feedItemToMessage formats a feed to be able to present it in Mattermost.
-func feedItemToMessage(item FeedItem) MattermostMessage {
+// itemToSimpleMessage formats a feed to be able to present it in Mattermost.
+func itemToSimpleMessage(config *Config, item FeedItem) MattermostMessage {
 	var message string
 
 	if item.Image != nil {
@@ -246,11 +261,41 @@ func feedItemToMessage(item FeedItem) MattermostMessage {
 		message = fmt.Sprintf("[%s](%s)", item.Title, item.Link)
 	}
 
-	return MattermostMessage{item.Channel, item.Username, item.IconURL, message}
+	message = config.sanitizer.Sanitize(message)
+
+	return MattermostMessage{Channel: item.Channel, Username: item.Username, Icon: item.IconURL, Message: message}
+}
+
+// itemToDetailedMessage formats a feed to be able to present it in Mattermost.
+func itemToDetailedMessage(config *Config, item FeedItem) MattermostMessage {
+	attachment := MattermostAttachment{
+		Fallback:  config.sanitizer.Sanitize(item.Title),
+		Title:     config.sanitizer.Sanitize(item.Title),
+		TitleLink: item.Link,
+		Text:      config.sanitizer.Sanitize(item.Description),
+	}
+
+	if item.Author != nil {
+		attachment.AuthorName = item.Author.Name
+	}
+
+	if item.Image != nil {
+		attachment.ThumbURL = item.Image.URL
+	}
+
+	return MattermostMessage{Channel: item.Channel, Username: item.Username, Icon: item.IconURL, Attachments: []MattermostAttachment{attachment}}
 }
 
 // toMattermost sends a message to mattermost.
-func toMattermost(config *Config, msg MattermostMessage) {
+func toMattermost(config *Config, item FeedItem) {
+
+	var msg MattermostMessage
+
+	if config.Detailed {
+		msg = itemToDetailedMessage(config, item)
+	} else {
+		msg = itemToSimpleMessage(config, item)
+	}
 
 	if msg.Channel == "" {
 		msg.Channel = config.Channel
@@ -298,6 +343,8 @@ func LoadConfig(file string) *Config {
 	if config.FeedFile != "" {
 		config.LoadFeeds()
 	}
+
+	config.sanitizer = bluemonday.StrictPolicy()
 
 	fmt.Println("Loaded configuration.")
 	return &config
