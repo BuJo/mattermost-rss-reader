@@ -52,6 +52,7 @@ Configuration is loaded from the included config.json.  Supply the following var
     - `IconURL`: optional icon URL
     - `Username`: optional username
     - `Channel`: optional channel name
+    - `Detailed`: optional rich text output
 
 ## Docker
 

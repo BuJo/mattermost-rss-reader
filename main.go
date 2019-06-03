@@ -50,6 +50,7 @@ type FeedConfig struct {
 	IconURL  string `json:"IconUrl,omitempty"`
 	Username string `json:"Username,omitempty"`
 	Channel  string `json:"Channel,omitempty"`
+	Detailed bool   `json:"Detailed"`
 }
 
 // The FeedItem hold information for a single feed update.
@@ -291,7 +292,7 @@ func toMattermost(config *Config, item FeedItem) {
 
 	var msg MattermostMessage
 
-	if config.Detailed {
+	if item.Detailed || config.Detailed {
 		msg = itemToDetailedMessage(config, item)
 	} else {
 		msg = itemToSimpleMessage(config, item)
