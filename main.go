@@ -149,8 +149,6 @@ func run(cfg *Config, subscriptions []Subscription, ch chan<- FeedItem) {
 // documentation from mattermost.
 // See https://docs.mattermost.com/developer/slash-commands.html fore more
 // documentation.
-//
-// BUG(Jo): Multiple feeds with the same name can be added.
 func feedCommandHandler(cfg *Config) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -186,6 +184,15 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 				iconURL = tokens[3]
 			}
 
+			for _, f := range cfg.Feeds {
+				if f.Name == name {
+					w.WriteHeader(http.StatusConflict)
+					j, _ := json.Marshal(MattermostMessage{Message: "Feed already exists, delete it first."})
+					w.Write(j)
+					return
+				}
+			}
+
 			cfg.Feeds = append(cfg.Feeds, FeedConfig{Name: name, URL: url, IconURL: iconURL, Channel: channel})
 			fmt.Println("User", username, "in channel", channel, "added feed:", name, url)
 			cfg.SaveFeeds()
@@ -204,6 +211,7 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 			cfg.Feeds = newlist
 			cfg.SaveFeeds()
 
+			w.WriteHeader(http.StatusOK)
 			j, _ := json.Marshal(MattermostMessage{Message: "Removed feed."})
 			w.Write(j)
 		case "list":
