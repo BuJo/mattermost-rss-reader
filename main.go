@@ -330,6 +330,7 @@ func (c *Config) LoadFeeds() {
 func (c *Config) SaveFeeds() {
 	if c.FeedFile == "" {
 		fmt.Println("Not saving feeds, configure `FeedFile`.")
+		return
 	}
 
 	raw, err := json.MarshalIndent(c.Feeds, "", "  ")
