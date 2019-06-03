@@ -184,7 +184,6 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 		switch action {
 		case "add":
 			if len(tokens) < 3 {
-				w.WriteHeader(http.StatusNotAcceptable)
 				j, _ := json.Marshal(MattermostMessage{Message: "Usage: add <name> <url> [iconURL]"})
 				w.Write(j)
 				return
@@ -202,7 +201,6 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 
 			for _, f := range cfg.Feeds {
 				if f.Name == name {
-					w.WriteHeader(http.StatusConflict)
 					j, _ := json.Marshal(MattermostMessage{Message: "Feed already exists, delete it first."})
 					w.Write(j)
 					return
@@ -213,7 +211,6 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 			fmt.Println("User", username, "in channel", channel, "added feed:", name, url)
 			cfg.SaveFeeds()
 
-			w.WriteHeader(http.StatusOK)
 			j, _ := json.Marshal(MattermostMessage{Message: "Added feed."})
 			w.Write(j)
 		case "remove":
@@ -227,7 +224,6 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 			cfg.Feeds = newlist
 			cfg.SaveFeeds()
 
-			w.WriteHeader(http.StatusOK)
 			j, _ := json.Marshal(MattermostMessage{Message: "Removed feed."})
 			w.Write(j)
 		case "list":
@@ -235,11 +231,9 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 			for _, f := range cfg.Feeds {
 				str += "* " + f.Name + " (" + f.URL + ")\n"
 			}
-			w.WriteHeader(http.StatusOK)
 			j, _ := json.Marshal(MattermostMessage{Message: str})
 			w.Write(j)
 		default:
-			w.WriteHeader(http.StatusNotAcceptable)
 			j, _ := json.Marshal(MattermostMessage{Message: "Unknown command"})
 			w.Write(j)
 		}
