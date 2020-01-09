@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -179,12 +180,15 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 
 		text := r.PostFormValue("text")
-		tokens := strings.Split(text, " ")
+
+		whitespace := regexp.MustCompile(`\s+`)
+		tokens := whitespace.Split(text, -1)
+
 		action := tokens[0]
 		switch action {
 		case "add":
 			if len(tokens) < 3 {
-				j, _ := json.Marshal(MattermostMessage{Message: "Usage: add <name> <url> [iconURL]"})
+				j, _ := json.Marshal(MattermostMessage{Message: "Usage: add <name> <url> [iconURL] [options]*"})
 				w.Write(j)
 				return
 			}
@@ -194,6 +198,8 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 			name := tokens[1]
 			url := tokens[2]
 			iconURL := ""
+			detailed := false
+			displayname := ""
 
 			if len(tokens) >= 4 {
 				iconURL = tokens[3]
@@ -207,7 +213,34 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 				}
 			}
 
-			cfg.Feeds = append(cfg.Feeds, FeedConfig{Name: name, URL: url, IconURL: iconURL, Channel: channel})
+			for _, option := range tokens[4:] {
+				if o := strings.SplitN(option, "=", 2); len(o) == 2 {
+					opt, val := o[0], o[1]
+					switch opt {
+					case "icon":
+						iconURL = val
+					case "channel":
+						channel = val
+					case "detailed", "detail":
+						if val == "t" || val == "true" || val == "yes" || val == "detailed" {
+							detailed = true
+						} else {
+							detailed = false
+						}
+					case "user", "username":
+						displayname = val
+					}
+				}
+			}
+
+			cfg.Feeds = append(cfg.Feeds, FeedConfig{
+				Name:     name,
+				URL:      url,
+				IconURL:  iconURL,
+				Channel:  channel,
+				Detailed: detailed,
+				Username: displayname,
+			})
 			fmt.Println("User", username, "in channel", channel, "added feed:", name, url)
 			cfg.SaveFeeds()
 
