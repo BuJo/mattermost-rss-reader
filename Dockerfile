@@ -1,4 +1,4 @@
-FROM golang:1.11-alpine
+FROM golang:1.14-alpine
 
 RUN apk add git
 RUN go get -d -v github.com/mmcdole/gofeed
