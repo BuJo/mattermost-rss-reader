@@ -142,7 +142,7 @@ func run(cfg *Config, subscriptions []Subscription, ch chan<- FeedItem) {
 	for _, subscription := range subscriptions {
 		updates := subscription.getUpdates()
 		for _, update := range updates {
-			hsh := sha1.Sum(append([]byte(update.Title), []byte(subscription.config.URL)...))
+			hsh := sha1.Sum([]byte(update.GUID))
 
 			shownFeeds[hsh] = true
 
@@ -296,11 +296,16 @@ func itemToSimpleMessage(config *Config, item FeedItem) MattermostMessage {
 
 // itemToDetailedMessage formats a feed to be able to present it in Mattermost.
 func itemToDetailedMessage(config *Config, item FeedItem) MattermostMessage {
+        text := item.Description
+        if text == "" {
+          text = item.Content
+        }
+
 	attachment := MattermostAttachment{
 		Fallback:  config.sanitizer.Sanitize(item.Title),
 		Title:     config.sanitizer.Sanitize(item.Title),
 		TitleLink: item.Link,
-		Text:      config.sanitizer.Sanitize(item.Description),
+		Text:      config.sanitizer.Sanitize(text),
 	}
 
 	if item.Author != nil {
@@ -457,7 +462,7 @@ func (s Subscription) getUpdates() []gofeed.Item {
 	}
 
 	for _, i := range feed.Items {
-		if i.PublishedParsed != nil {
+		if i.GUID != "" {
 			updates = append(updates, *i)
 		}
 	}
