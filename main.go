@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -79,6 +80,8 @@ type MattermostAttachment struct {
 	AuthorName string `json:"author_name,omitempty"`
 	ThumbURL   string `json:"thumb_url,omitempty"`
 }
+
+const OneMegabyte = 1 << (10 * 2)
 
 // Version of this application.
 var Version = "development"
@@ -296,10 +299,10 @@ func itemToSimpleMessage(config *Config, item FeedItem) MattermostMessage {
 
 // itemToDetailedMessage formats a feed to be able to present it in Mattermost.
 func itemToDetailedMessage(config *Config, item FeedItem) MattermostMessage {
-        text := item.Description
-        if text == "" {
-          text = item.Content
-        }
+	text := item.Description
+	if text == "" {
+		text = item.Content
+	}
 
 	attachment := MattermostAttachment{
 		Fallback:  config.sanitizer.Sanitize(item.Title),
@@ -346,10 +349,22 @@ func toMattermost(config *Config, item FeedItem) {
 	json.NewEncoder(buff).Encode(msg)
 	response, err := http.Post(config.WebhookURL, "application/json;charset=utf-8", buff)
 	if err != nil {
-		fmt.Println("Error Posting message to Mattermost:", err)
+		fmt.Println("ERROR Posting message to Mattermost:", err)
 		return
 	}
 	defer response.Body.Close()
+
+	if response.StatusCode == 200 {
+		// success
+		return
+	}
+
+	data, err := ioutil.ReadAll(io.LimitReader(response.Body, OneMegabyte))
+	if err != nil {
+		fmt.Println("ERROR reading mattermost error message:", err)
+		return
+	}
+	fmt.Println("WARN Mattermost response:", string(data))
 }
 
 // LoadConfig returns the config from json.
