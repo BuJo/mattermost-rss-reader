@@ -96,22 +96,24 @@ func main() {
 	cfg := LoadConfig()
 
 	// Set up command server
-	go func(ctx *log.Entry) {
-		http.HandleFunc("/feeds", feedCommandHandler(cfg))
-		http.Handle("/actuator/metrics", promhttp.Handler())
-		http.HandleFunc("/actuator/health", healthHandler(cfg))
+	if *httpBind != "" {
+		go func(ctx *log.Entry) {
+			http.HandleFunc("/feeds", feedCommandHandler(cfg))
+			http.Handle("/actuator/metrics", promhttp.Handler())
+			http.HandleFunc("/actuator/health", healthHandler(cfg))
 
-		ctx.Infof("Listening for commands on http://%s/feeds\n", *httpBind)
+			ctx.Infof("Listening for commands on http://%s/feeds\n", *httpBind)
 
-		l, err := net.Listen("tcp", *httpBind)
-		if err != nil {
-			ctx.WithError(err).Error("Error starting server")
-		}
-		if *systemd {
-			daemon.SdNotify(false, daemon.SdNotifyReady)
-		}
-		http.Serve(l, nil)
-	}(cfg.ctx)
+			l, err := net.Listen("tcp", *httpBind)
+			if err != nil {
+				ctx.WithError(err).Error("Error starting server")
+			}
+			if *systemd {
+				daemon.SdNotify(false, daemon.SdNotifyReady)
+			}
+			http.Serve(l, nil)
+		}(cfg.ctx)
+	}
 
 	//get all of our feeds and process them initially
 	subscriptions := make([]*Subscription, 0)
