@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -80,12 +81,14 @@ type MattermostAttachment struct {
 	ThumbURL   string `json:"thumb_url,omitempty"`
 }
 
+const OneMegabyte = 1 << (10 * 2)
+
 // Version of this application.
 var Version = "development"
 
 func main() {
 	cPath := flag.String("config", "./config.json", "Path to the config file.")
-	httpBind := flag.String("bind", "127.0.0.1:9090", "HTTP Binding")
+	httpBind := flag.String("bind", "", "HTTP Binding")
 	printVersion := flag.Bool("version", false, "Show Version")
 
 	flag.Parse()
@@ -98,14 +101,16 @@ func main() {
 	cfg := LoadConfig(*cPath)
 
 	// Set up command server
-	go func() {
-		http.HandleFunc("/feeds", feedCommandHandler(cfg))
-		fmt.Printf("Listening for commands on http://%s/feeds\n", *httpBind)
-		err := http.ListenAndServe(*httpBind, nil)
-		if err != nil {
-			fmt.Println("Error starting server:", err)
-		}
-	}()
+	if *httpBind != "" {
+		go func() {
+			http.HandleFunc("/feeds", feedCommandHandler(cfg))
+			fmt.Printf("Listening for commands on http://%s/feeds\n", *httpBind)
+			err := http.ListenAndServe(*httpBind, nil)
+			if err != nil {
+				fmt.Println("Error starting server:", err)
+			}
+		}()
+	}
 
 	//get all of our feeds and process them initially
 	subscriptions := make([]Subscription, 0)
@@ -142,7 +147,7 @@ func run(cfg *Config, subscriptions []Subscription, ch chan<- FeedItem) {
 	for _, subscription := range subscriptions {
 		updates := subscription.getUpdates()
 		for _, update := range updates {
-			hsh := sha1.Sum(append([]byte(update.Title), []byte(subscription.config.URL)...))
+			hsh := sha1.Sum([]byte(update.GUID))
 
 			shownFeeds[hsh] = true
 
@@ -296,11 +301,16 @@ func itemToSimpleMessage(config *Config, item FeedItem) MattermostMessage {
 
 // itemToDetailedMessage formats a feed to be able to present it in Mattermost.
 func itemToDetailedMessage(config *Config, item FeedItem) MattermostMessage {
+	text := item.Description
+	if text == "" {
+		text = item.Content
+	}
+
 	attachment := MattermostAttachment{
 		Fallback:  config.sanitizer.Sanitize(item.Title),
 		Title:     config.sanitizer.Sanitize(item.Title),
 		TitleLink: item.Link,
-		Text:      config.sanitizer.Sanitize(item.Description),
+		Text:      config.sanitizer.Sanitize(text),
 	}
 
 	if item.Author != nil {
@@ -341,10 +351,22 @@ func toMattermost(config *Config, item FeedItem) {
 	json.NewEncoder(buff).Encode(msg)
 	response, err := http.Post(config.WebhookURL, "application/json;charset=utf-8", buff)
 	if err != nil {
-		fmt.Println("Error Posting message to Mattermost:", err)
+		fmt.Println("ERROR Posting message to Mattermost:", err)
 		return
 	}
 	defer response.Body.Close()
+
+	if response.StatusCode == 200 {
+		// success
+		return
+	}
+
+	data, err := ioutil.ReadAll(io.LimitReader(response.Body, OneMegabyte))
+	if err != nil {
+		fmt.Println("ERROR reading mattermost error message:", err)
+		return
+	}
+	fmt.Println("WARN Mattermost response:", string(data))
 }
 
 // LoadConfig returns the config from json.
@@ -457,7 +479,7 @@ func (s Subscription) getUpdates() []gofeed.Item {
 	}
 
 	for _, i := range feed.Items {
-		if i.PublishedParsed != nil {
+		if i.GUID != "" {
 			updates = append(updates, *i)
 		}
 	}
