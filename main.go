@@ -88,7 +88,7 @@ var Version = "development"
 
 func main() {
 	cPath := flag.String("config", "./config.json", "Path to the config file.")
-	httpBind := flag.String("bind", "127.0.0.1:9090", "HTTP Binding")
+	httpBind := flag.String("bind", "", "HTTP Binding")
 	printVersion := flag.Bool("version", false, "Show Version")
 
 	flag.Parse()
@@ -101,14 +101,16 @@ func main() {
 	cfg := LoadConfig(*cPath)
 
 	// Set up command server
-	go func() {
-		http.HandleFunc("/feeds", feedCommandHandler(cfg))
-		fmt.Printf("Listening for commands on http://%s/feeds\n", *httpBind)
-		err := http.ListenAndServe(*httpBind, nil)
-		if err != nil {
-			fmt.Println("Error starting server:", err)
-		}
-	}()
+	if *httpBind != "" {
+		go func() {
+			http.HandleFunc("/feeds", feedCommandHandler(cfg))
+			fmt.Printf("Listening for commands on http://%s/feeds\n", *httpBind)
+			err := http.ListenAndServe(*httpBind, nil)
+			if err != nil {
+				fmt.Println("Error starting server:", err)
+			}
+		}()
+	}
 
 	//get all of our feeds and process them initially
 	subscriptions := make([]Subscription, 0)
