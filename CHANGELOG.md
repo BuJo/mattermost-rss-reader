@@ -1,5 +1,11 @@
 # mattermost-rss-reader Changelog
 
+## Release v1.0 - 2020-04-27
+
+* Add richtext messages
+* Make feeds more configurable
+* Various bugfixes and cleanups
+
 ## Release v0.9 - 2018-12-30
 
 * Use separate configurable `FeedFile` for saving new feeds added via Slash
