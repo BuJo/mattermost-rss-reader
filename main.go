@@ -311,6 +311,12 @@ func itemToDetailedMessage(config *Config, item FeedItem) MattermostMessage {
 		Text:      config.sanitizer.Sanitize(item.Description),
 	}
 
+	if item.Description != "" {
+		attachment.Text = config.sanitizer.Sanitize(item.Description)
+	} else if item.Content != "" {
+		attachment.Text = config.sanitizer.Sanitize(item.Content)
+	}
+
 	if item.Author != nil {
 		attachment.AuthorName = item.Author.Name
 	}
