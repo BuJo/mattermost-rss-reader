@@ -141,7 +141,7 @@ func run(cfg *Config, subscriptions []Subscription, ch chan<- FeedItem) {
 	shownFeeds := make(map[[sha1.Size]byte]bool, 0)
 
 	for _, subscription := range subscriptions {
-		updates := subscription.getUpdates()
+		updates, _ := subscription.getUpdates()
 		nr := 1
 
 		for _, update := range updates {
@@ -452,7 +452,7 @@ func NewSubscription(config FeedConfig) Subscription {
 }
 
 // getUpdates fetches feed updates for specified subscription
-func (s Subscription) getUpdates() []gofeed.Item {
+func (s Subscription) getUpdates() ([]gofeed.Item, error) {
 
 	fmt.Println("Get updates from", s.config.URL)
 
@@ -461,16 +461,14 @@ func (s Subscription) getUpdates() []gofeed.Item {
 	feed, err := s.parser.ParseURL(s.config.URL)
 	if err != nil {
 		fmt.Println(err)
-		return updates
+		return updates, err
 	}
 
 	for _, i := range feed.Items {
-		if i.PublishedParsed != nil {
-			updates = append(updates, *i)
-		}
+		updates = append(updates, *i)
 	}
 
 	fmt.Println("Got", len(updates), "updates from", s.config.URL)
 
-	return updates
+	return updates, nil
 }
