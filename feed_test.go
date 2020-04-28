@@ -5,8 +5,8 @@ import "testing"
 func TestFefe(t *testing.T) {
 
 	subscription := NewSubscription(FeedConfig{
-		Name:     "Fefe",
-		URL:      "https://blog.fefe.de/rss.xml?html",
+		Name: "Fefe",
+		URL:  "https://blog.fefe.de/rss.xml?html",
 	})
 	updates, err := subscription.getUpdates()
 	if err != nil {
