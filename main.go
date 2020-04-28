@@ -37,6 +37,7 @@ type Config struct {
 	IconURL     string `json:"IconURL,omitempty"`
 	Username    string `json:"Username"`
 	SkipInitial bool   `json:"SkipInitial"`
+	ShowInitial int    `json:"ShowInitial,omitempty"`
 	Interval    string `json:"Interval"`
 	Detailed    bool   `json:"Detailed"`
 
@@ -141,6 +142,8 @@ func run(cfg *Config, subscriptions []Subscription, ch chan<- FeedItem) {
 
 	for _, subscription := range subscriptions {
 		updates := subscription.getUpdates()
+		nr := 1
+
 		for _, update := range updates {
 			hsh := sha1.Sum(append([]byte(update.Title), []byte(subscription.config.URL)...))
 
@@ -150,11 +153,16 @@ func run(cfg *Config, subscriptions []Subscription, ch chan<- FeedItem) {
 				fmt.Println("Skipping", update.Title, ", initial run")
 
 				continue
+			} else if initialRun && nr <= cfg.ShowInitial {
+				fmt.Println("Skipping", update.Title, ",", nr, "/", cfg.ShowInitial)
+
+				continue
 			} else if _, ok := cfg.shownFeeds[hsh]; ok {
 				fmt.Println("Skipping", update.Title, ", already published")
 				continue
 			}
 
+			nr++
 			ch <- NewFeedItem(subscription, update)
 		}
 	}
