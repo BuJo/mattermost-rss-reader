@@ -150,15 +150,15 @@ func run(cfg *Config, subscriptions []Subscription, ch chan<- FeedItem) {
 			shownFeeds[hsh] = true
 
 			if initialRun && cfg.SkipInitial {
-				fmt.Println("Skipping", update.Title, ", initial run")
+				fmt.Printf("[%x] Skipping %s, initial run\n", hsh, update.Title)
 
 				continue
-			} else if initialRun && nr <= cfg.ShowInitial {
-				fmt.Println("Skipping", update.Title, ",", nr, "/", cfg.ShowInitial)
+			} else if initialRun && nr > cfg.ShowInitial {
+				fmt.Printf("[%x] Skipping %s, %d/%d\n", hsh, update.Title, nr, cfg.ShowInitial)
 
 				continue
 			} else if _, ok := cfg.shownFeeds[hsh]; ok {
-				fmt.Println("Skipping", update.Title, ", already published")
+				fmt.Printf("[%x] Skipping %s, already published\n", hsh, update.Title)
 				continue
 			}
 
