@@ -85,14 +85,16 @@ type MattermostAttachment struct {
 	ThumbURL   string `json:"thumb_url,omitempty"`
 }
 
+
+var cPath = flag.String("config", "./config.json", "Path to the config file.")
+var httpBind = flag.String("bind", "127.0.0.1:9090", "HTTP Binding")
+var environment = flag.String("environment", "dev", "Runtime environment")
+var printVersion = flag.Bool("version", false, "Show Version")
+
 // Version of this application.
 var Version = "development"
 
 func main() {
-	cPath := flag.String("config", "./config.json", "Path to the config file.")
-	httpBind := flag.String("bind", "127.0.0.1:9090", "HTTP Binding")
-	environment := flag.String("environment", "dev", "Runtime environment")
-	printVersion := flag.Bool("version", false, "Show Version")
 
 	flag.Parse()
 
@@ -101,7 +103,7 @@ func main() {
 		return
 	}
 
-	cfg := LoadConfig(*cPath, *environment)
+	cfg := LoadConfig()
 
 	// Set up command server
 	go func(ctx *log.Entry) {
@@ -396,7 +398,7 @@ func toMattermost(config *Config, item FeedItem) (err error) {
 }
 
 // LoadConfig returns the config from json.
-func LoadConfig(file string, environment string) *Config {
+func LoadConfig() *Config {
 	var config Config
 
 	log.SetHandler(text.New(os.Stderr))
@@ -406,12 +408,12 @@ func LoadConfig(file string, environment string) *Config {
 		"version": Version,
 	})
 
-	raw, err := ioutil.ReadFile(file)
+	raw, err := ioutil.ReadFile(*cPath)
 	if err != nil {
 		config.ctx.WithError(err).Fatal("Error reading config file")
 	}
 
-	config.file = file
+	config.file = *cPath
 	if err = json.Unmarshal(raw, &config); err != nil {
 		config.ctx.WithError(err).Fatal("Error reading config file")
 	}
