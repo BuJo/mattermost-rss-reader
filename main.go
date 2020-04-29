@@ -15,9 +15,9 @@ import (
 	"time"
 
 	"github.com/apex/log"
-	"github.com/apex/log/handlers/text"
 	"github.com/apex/log/handlers/graylog"
 	"github.com/apex/log/handlers/multi"
+	"github.com/apex/log/handlers/text"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/mmcdole/gofeed"
 )
@@ -86,7 +86,6 @@ type MattermostAttachment struct {
 	AuthorName string `json:"author_name,omitempty"`
 	ThumbURL   string `json:"thumb_url,omitempty"`
 }
-
 
 var cPath = flag.String("config", "./config.json", "Path to the config file.")
 var httpBind = flag.String("bind", "127.0.0.1:9090", "HTTP Binding")
