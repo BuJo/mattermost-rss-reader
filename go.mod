@@ -4,6 +4,7 @@ go 1.12
 
 require (
 	github.com/PuerkitoBio/goquery v1.5.1 // indirect
+	github.com/apex/log v1.1.4
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.2
 	github.com/mmcdole/gofeed v1.0.0-beta2

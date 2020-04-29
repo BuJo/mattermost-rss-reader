@@ -1,17 +1,19 @@
 package main
 
 import (
-	"github.com/microcosm-cc/bluemonday"
 	"testing"
+
+	"github.com/apex/log"
+	"github.com/microcosm-cc/bluemonday"
 )
 
 func TestFefe(t *testing.T) {
 
-	subscription := NewSubscription(FeedConfig{
+	sub := NewSubscription(FeedConfig{
 		Name: "Fefe",
 		URL:  "https://blog.fefe.de/rss.xml?html",
 	})
-	updates, err := subscription.getUpdates()
+	updates, err := sub.getUpdates(log.WithField("feed", sub.config.Name))
 	if err != nil {
 		t.Error(err)
 	}
@@ -29,7 +31,7 @@ func TestGoogleAlert(t *testing.T) {
 		Name: "GoogleAlert",
 		URL:  "https://www.google.de/alerts/feeds/06708116347342762808/6740125697618148595",
 	})
-	updates, err := sub.getUpdates()
+	updates, err := sub.getUpdates(log.WithField("feed", sub.config.Name))
 	if err != nil {
 		t.Error(err)
 	}

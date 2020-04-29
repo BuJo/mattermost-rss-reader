@@ -9,10 +9,13 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/apex/log"
+	"github.com/apex/log/handlers/text"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/mmcdole/gofeed"
 )
@@ -30,6 +33,7 @@ type Config struct {
 	shownFeeds map[[sha1.Size]byte]bool
 	interval   time.Duration
 	sanitizer  *bluemonday.Policy
+	ctx        *log.Entry
 
 	WebhookURL  string `json:"WebhookURL"`
 	Token       string `json:"Token,omitempty"`
@@ -87,26 +91,27 @@ var Version = "development"
 func main() {
 	cPath := flag.String("config", "./config.json", "Path to the config file.")
 	httpBind := flag.String("bind", "127.0.0.1:9090", "HTTP Binding")
+	environment := flag.String("environment", "dev", "Runtime environment")
 	printVersion := flag.Bool("version", false, "Show Version")
 
 	flag.Parse()
 
 	if *printVersion {
-		fmt.Println("mattermost-rss-reader, version:", Version)
+		fmt.Println(path.Base(os.Args[0]), "version:", Version)
 		return
 	}
 
-	cfg := LoadConfig(*cPath)
+	cfg := LoadConfig(*cPath, *environment)
 
 	// Set up command server
-	go func() {
+	go func(ctx *log.Entry) {
 		http.HandleFunc("/feeds", feedCommandHandler(cfg))
-		fmt.Printf("Listening for commands on http://%s/feeds\n", *httpBind)
+		ctx.Infof("Listening for commands on http://%s/feeds\n", *httpBind)
 		err := http.ListenAndServe(*httpBind, nil)
 		if err != nil {
-			fmt.Println("Error starting server:", err)
+			ctx.WithError(err).Error("Error starting server:")
 		}
-	}()
+	}(cfg.ctx)
 
 	//get all of our feeds and process them initially
 	subscriptions := make([]Subscription, 0)
@@ -118,7 +123,7 @@ func main() {
 	updateTimer := time.Tick(cfg.interval)
 
 	// Run once at start
-	fmt.Println("Ready to fetch feeds. Interval:", cfg.interval)
+	cfg.ctx.WithField("interval", cfg.interval).Info("Ready to fetch feeds")
 	run(cfg, subscriptions, feedItems)
 
 	for {
@@ -141,24 +146,29 @@ func run(cfg *Config, subscriptions []Subscription, ch chan<- FeedItem) {
 	shownFeeds := make(map[[sha1.Size]byte]bool, 0)
 
 	for _, subscription := range subscriptions {
-		updates, _ := subscription.getUpdates()
+		ctx := cfg.ctx.WithField("feed", subscription.config.Name)
+
+		updates, _ := subscription.getUpdates(ctx)
 		nr := 1
+
+		ctx = ctx.WithField("count", len(updates))
 
 		for _, update := range updates {
 			hsh := sha1.Sum(append([]byte(update.Title), []byte(subscription.config.URL)...))
+			ctx = ctx.WithField("hsh", hsh).WithField("title", update.Title).WithField("nr", nr)
 
 			shownFeeds[hsh] = true
 
 			if initialRun && cfg.SkipInitial {
-				fmt.Printf("[%x] Skipping %s, initial run\n", hsh, update.Title)
+				ctx.Debug("Skipping initial run")
 
 				continue
 			} else if initialRun && nr > cfg.ShowInitial {
-				fmt.Printf("[%x] Skipping %s, %d/%d\n", hsh, update.Title, nr, cfg.ShowInitial)
+				ctx.Debug("Skipping initial run")
 
 				continue
 			} else if _, ok := cfg.shownFeeds[hsh]; ok {
-				fmt.Printf("[%x] Skipping %s, already published\n", hsh, update.Title)
+				ctx.Debug("Skipping already published")
 				continue
 			}
 
@@ -178,12 +188,21 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 
+		var err error
 		token := r.PostFormValue("token")
 
 		if token != cfg.Token {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
+
+		username := r.PostFormValue("user_name")
+		channel := r.PostFormValue("channel_name")
+
+		ctx := cfg.ctx.WithFields(log.Fields{
+			"user":    username,
+			"channel": channel,
+		})
 
 		w.Header().Set("Content-Type", "application/json")
 
@@ -201,8 +220,6 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 				return
 			}
 
-			username := r.PostFormValue("user_name")
-			channel := r.PostFormValue("channel_name")
 			name := tokens[1]
 			url := tokens[2]
 			iconURL := ""
@@ -215,6 +232,8 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 
 			for _, f := range cfg.Feeds {
 				if f.Name == name {
+					ctx.WithField("feed", name).Info("Feed already exists")
+
 					j, _ := json.Marshal(MattermostMessage{Message: "Feed already exists, delete it first."})
 					w.Write(j)
 					return
@@ -249,7 +268,12 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 				Detailed: detailed,
 				Username: displayname,
 			})
-			fmt.Println("User", username, "in channel", channel, "added feed:", name, url)
+
+			defer ctx.WithFields(log.Fields{
+				"feed": name,
+				"url":  url,
+			}).Trace("Fedd added").Stop(&err)
+
 			cfg.SaveFeeds()
 
 			j, _ := json.Marshal(MattermostMessage{Message: "Added feed."})
@@ -265,6 +289,8 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 			cfg.Feeds = newlist
 			cfg.SaveFeeds()
 
+			defer ctx.WithField("feed", name).Trace("Feed deleted").Stop(&err)
+
 			j, _ := json.Marshal(MattermostMessage{Message: "Removed feed."})
 			w.Write(j)
 		case "list":
@@ -272,9 +298,14 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 			for _, f := range cfg.Feeds {
 				str += "* " + f.Name + " (" + f.URL + ")\n"
 			}
+
+			defer ctx.Trace("Feed listing").Stop(&err)
+
 			j, _ := json.Marshal(MattermostMessage{Message: str})
 			w.Write(j)
 		default:
+			defer ctx.Trace("Unknown command").Stop(&err)
+
 			j, _ := json.Marshal(MattermostMessage{Message: "Unknown command"})
 			w.Write(j)
 		}
@@ -329,7 +360,7 @@ func itemToDetailedMessage(config *Config, item FeedItem) MattermostMessage {
 }
 
 // toMattermost sends a message to mattermost.
-func toMattermost(config *Config, item FeedItem) {
+func toMattermost(config *Config, item FeedItem) (err error) {
 
 	var msg MattermostMessage
 
@@ -349,30 +380,40 @@ func toMattermost(config *Config, item FeedItem) {
 		msg.Icon = config.IconURL
 	}
 
-	fmt.Printf("To Mattermost #%s as %s: %s\n", msg.Channel, msg.Username, msg.Message)
+	ctx := config.ctx.WithField("channel", msg.Channel).WithField("user", msg.Username)
+	defer ctx.Trace("Posting to Mattermost").Stop(&err)
 
 	buff := new(bytes.Buffer)
 	json.NewEncoder(buff).Encode(msg)
-	response, err := http.Post(config.WebhookURL, "application/json;charset=utf-8", buff)
+	var response *http.Response
+	response, err = http.Post(config.WebhookURL, "application/json;charset=utf-8", buff)
 	if err != nil {
-		fmt.Println("Error Posting message to Mattermost:", err)
-		return
+		return err
 	}
 	defer response.Body.Close()
+
+	return nil
 }
 
 // LoadConfig returns the config from json.
-func LoadConfig(file string) *Config {
+func LoadConfig(file string, environment string) *Config {
+	var config Config
+
+	log.SetHandler(text.New(os.Stderr))
+	config.ctx = log.WithFields(log.Fields{
+		"app":     path.Base(os.Args[0]),
+		"env":     environment,
+		"version": Version,
+	})
+
 	raw, err := ioutil.ReadFile(file)
 	if err != nil {
-		fmt.Println("Error reading config file:", err)
-		os.Exit(1)
+		config.ctx.WithError(err).Fatal("Error reading config file")
 	}
-	var config Config
+
 	config.file = file
 	if err = json.Unmarshal(raw, &config); err != nil {
-		fmt.Println("Error reading feed file:", err)
-		os.Exit(1)
+		config.ctx.WithError(err).Fatal("Error reading config file")
 	}
 
 	interval, err := time.ParseDuration(config.Interval)
@@ -388,21 +429,21 @@ func LoadConfig(file string) *Config {
 
 	config.sanitizer = bluemonday.StrictPolicy()
 
-	fmt.Println("Loaded configuration.")
+	config.ctx.Debug("Configuration loaded")
+
 	return &config
 }
 
 // LoadFeeds will load feeds from a separate feed file.
-func (c *Config) LoadFeeds() {
+func (c *Config) LoadFeeds() error {
 	raw, err := ioutil.ReadFile(c.FeedFile)
 	if err != nil {
-		fmt.Println("Error reading feed file:", err)
-		return
+		c.ctx.WithError(err).Error("Error reading feed file")
+		return err
 	}
 
 	if err = json.Unmarshal(raw, &c.Feeds); err != nil {
-		fmt.Println("Error reading feed file:", err)
-		os.Exit(1)
+		c.ctx.WithError(err).Fatal("Error reading feed file")
 	}
 
 	// Remove bad feeds
@@ -413,42 +454,44 @@ func (c *Config) LoadFeeds() {
 		}
 	}
 	c.Feeds = newlist
+
+	return nil
 }
 
 // SaveFeeds will save the current list of feeds.
 func (c *Config) SaveFeeds() {
 	if c.FeedFile == "" {
-		fmt.Println("Not saving feeds, configure `FeedFile`.")
+		c.ctx.Warn("Not saving feeds, configure `FeedFile`.")
 		return
 	}
 
 	raw, err := json.MarshalIndent(c.Feeds, "", "  ")
 	if err != nil {
-		fmt.Println("Error serializing feeds:", err)
+		c.ctx.WithError(err).Error("Error serializing feeds")
 		return
 	}
 
 	tmpfile, err := ioutil.TempFile("", "mamo-rss-reader")
 	if err != nil {
-		fmt.Println("Error opening tempfile for saving feeds", err)
+		c.ctx.WithError(err).Error("Error opening temporary file for feeds")
 		return
 	}
 
 	if _, err = tmpfile.Write(raw); err != nil {
-		fmt.Println("Error writing config file:", err)
+		c.ctx.WithError(err).Error("Error writing config file")
 		return
 	}
 	if err = tmpfile.Close(); err != nil {
-		fmt.Println("Error writing config file:", err)
+		c.ctx.WithError(err).Error("Error writing config file")
 		return
 	}
 
 	if err = os.Rename(tmpfile.Name(), c.FeedFile); err != nil {
-		fmt.Println("Error writing config file:", err)
+		c.ctx.WithError(err).Error("Error writing config file")
 		return
 	}
 
-	fmt.Println("Saved feeds.")
+	c.ctx.Info("Saved feeds.")
 }
 
 // NewSubscription returns a new subscription for a given configuration.
@@ -458,23 +501,21 @@ func NewSubscription(config FeedConfig) Subscription {
 }
 
 // getUpdates fetches feed updates for specified subscription
-func (s Subscription) getUpdates() ([]gofeed.Item, error) {
+func (s Subscription) getUpdates(ctx *log.Entry) (updates []gofeed.Item, err error) {
 
-	fmt.Println("Get updates from", s.config.URL)
+	defer ctx.WithField("url", s.config.URL).Trace("Get updates").Stop(&err)
 
-	updates := make([]gofeed.Item, 0)
+	updates = make([]gofeed.Item, 0)
 
-	feed, err := s.parser.ParseURL(s.config.URL)
+	var feed *gofeed.Feed
+	feed, err = s.parser.ParseURL(s.config.URL)
 	if err != nil {
-		fmt.Println(err)
 		return updates, err
 	}
 
 	for _, i := range feed.Items {
 		updates = append(updates, *i)
 	}
-
-	fmt.Println("Got", len(updates), "updates from", s.config.URL)
 
 	return updates, nil
 }
