@@ -1,5 +1,11 @@
 # mattermost-rss-reader Changelog
 
+## Release v1.2 - 2020-04-29
+
+* Add structured logging
+* Add logging to graylog
+* Add health and metrics endpoints
+
 ## Release v1.1 - 2020-04-29
 
 * New config option `ShowInitial`, for showing only a number of initial messages
