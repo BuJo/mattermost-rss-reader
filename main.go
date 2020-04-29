@@ -160,7 +160,7 @@ func run(cfg *Config, subscriptions []Subscription, ch chan<- FeedItem) {
 
 		for _, update := range updates {
 			hsh := sha1.Sum(append([]byte(update.Title), []byte(subscription.config.URL)...))
-			ctx = ctx.WithField("hsh", hsh).WithField("title", update.Title).WithField("nr", nr)
+			ctx = ctx.WithField("hsh", fmt.Sprintf("%x", hsh)).WithField("title", update.Title).WithField("nr", nr)
 
 			shownFeeds[hsh] = true
 
@@ -416,9 +416,9 @@ func LoadConfig() *Config {
 	}
 
 	config.ctx = log.WithFields(log.Fields{
-		"app":     path.Base(os.Args[0]),
-		"env":     environment,
-		"version": Version,
+		"application": path.Base(os.Args[0]),
+		"environment": *environment,
+		"version":     Version,
 	})
 
 	raw, err := ioutil.ReadFile(*cPath)
