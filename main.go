@@ -20,6 +20,7 @@ import (
 	"github.com/apex/log/handlers/text"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/mmcdole/gofeed"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // A Subscription holds the configuration to fetch updates from a single URL.
@@ -111,7 +112,11 @@ func main() {
 	// Set up command server
 	go func(ctx *log.Entry) {
 		http.HandleFunc("/feeds", feedCommandHandler(cfg))
+		http.Handle("/actuator/metrics", promhttp.Handler())
+		http.HandleFunc("/actuator/health", healthHandler(cfg))
+
 		ctx.Infof("Listening for commands on http://%s/feeds\n", *httpBind)
+
 		err := http.ListenAndServe(*httpBind, nil)
 		if err != nil {
 			ctx.WithError(err).Error("Error starting server:")
