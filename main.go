@@ -16,6 +16,8 @@ import (
 
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/text"
+	"github.com/apex/log/handlers/graylog"
+	"github.com/apex/log/handlers/multi"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/mmcdole/gofeed"
 )
@@ -91,6 +93,7 @@ var httpBind = flag.String("bind", "127.0.0.1:9090", "HTTP Binding")
 var environment = flag.String("environment", "dev", "Runtime environment")
 var printVersion = flag.Bool("version", false, "Show Version")
 var logLevel = flag.String("loglevel", "info", "Log level (debug, _info_, warn, error, fatal)")
+var logGraylog = flag.String("graylog", "", "Optional Graylog host for logging")
 
 // Version of this application.
 var Version = "development"
@@ -404,6 +407,14 @@ func LoadConfig() *Config {
 
 	log.SetHandler(text.New(os.Stderr))
 	log.SetLevelFromString(*logLevel)
+
+	if *logGraylog != "" {
+		g, err := graylog.New(*logGraylog)
+		if err != nil {
+			log.WithError(err).Error("Failed to initialize Graylog logger")
+		}
+		log.SetHandler(multi.New(text.New(os.Stderr), g))
+	}
 
 	config.ctx = log.WithFields(log.Fields{
 		"app":     path.Base(os.Args[0]),
