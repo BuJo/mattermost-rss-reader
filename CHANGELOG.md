@@ -1,5 +1,12 @@
 # mattermost-rss-reader Changelog
 
+## Release v1.1 - 2020-04-29
+
+* New config option `ShowInitial`, for showing only a number of initial messages
+  if `SkipInitial` is set to `false`.
+* Allow feeds without publish dates
+* On detailed messages, use content if the item description is empty.
+
 ## Release v1.0 - 2020-04-27
 
 * Add richtext messages
