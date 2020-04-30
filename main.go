@@ -12,6 +12,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/BuJo/mattermost-rss-reader/journal"
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/graylog"
 	"github.com/apex/log/handlers/multi"
@@ -164,16 +165,25 @@ func run(cfg *Config, subscriptions []Subscription, ch chan<- FeedItem) {
 func LoadConfig() *Config {
 	var config Config
 
-	log.SetHandler(text.New(os.Stderr))
 	log.SetLevelFromString(*logLevel)
+
+	loghandlers := make([]log.Handler)
 
 	if *logGraylog != "" {
 		g, err := graylog.New(*logGraylog)
 		if err != nil {
 			log.WithError(err).Error("Failed to initialize Graylog logger")
+		} else {
+			loghandlers = append(loghandlers, g)
 		}
-		log.SetHandler(multi.New(text.New(os.Stderr), g))
 	}
+
+	if *systemd {
+		loghandlers = append(loghandlers, journal.New())
+	} else {
+		loghandlers = append(loghandlers, text.New(os.Stderr))
+	}
+	log.SetHandler(multi.New(loghandlers...))
 
 	config.ctx = log.WithFields(log.Fields{
 		"application": path.Base(os.Args[0]),
