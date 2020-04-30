@@ -5,11 +5,10 @@ go 1.12
 require (
 	github.com/PuerkitoBio/goquery v1.5.1 // indirect
 	github.com/apex/log v1.1.4
+	github.com/coreos/go-systemd/v22 v22.0.0
 	github.com/microcosm-cc/bluemonday v1.0.2
 	github.com/mmcdole/gofeed v1.0.0-beta2
 	github.com/mmcdole/goxpp v0.0.0-20181012175147-0068e33feabf // indirect
-	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
-	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/prometheus/client_golang v1.6.0
 	github.com/stretchr/testify v1.5.1 // indirect

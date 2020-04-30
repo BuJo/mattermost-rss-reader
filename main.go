@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"path"
@@ -15,6 +16,7 @@ import (
 	"github.com/apex/log/handlers/graylog"
 	"github.com/apex/log/handlers/multi"
 	"github.com/apex/log/handlers/text"
+	"github.com/coreos/go-systemd/v22/daemon"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -57,6 +59,7 @@ var environment = flag.String("environment", "dev", "Runtime environment")
 var printVersion = flag.Bool("version", false, "Show Version")
 var logLevel = flag.String("loglevel", "info", "Log level (debug, _info_, warn, error, fatal)")
 var logGraylog = flag.String("graylog", "", "Optional Graylog host for logging")
+var systemd = flag.Bool("systemd", false, "systemd integration")
 
 // Version of this application.
 var Version = "development"
@@ -80,10 +83,14 @@ func main() {
 
 		ctx.Infof("Listening for commands on http://%s/feeds\n", *httpBind)
 
-		err := http.ListenAndServe(*httpBind, nil)
+		l, err := net.Listen("tcp", *httpBind)
 		if err != nil {
-			ctx.WithError(err).Error("Error starting server:")
+			ctx.WithError(err).Error("Error starting server")
 		}
+		if *systemd {
+			daemon.SdNotify(false, "READY=1")
+		}
+		http.Serve(l, nil)
 	}(cfg.ctx)
 
 	//get all of our feeds and process them initially
