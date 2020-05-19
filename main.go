@@ -135,7 +135,12 @@ func run(cfg *Config, subscriptions []Subscription, ch chan<- FeedItem) {
 		ctx = ctx.WithField("count", len(updates))
 
 		for _, update := range updates {
-			hsh := sha1.Sum(append([]byte(update.Title), []byte(subscription.config.URL)...))
+			var hsh [sha1.Size]byte
+			s := sha1.New()
+			s.Write([]byte(update.Title))
+			s.Write([]byte(update.Link))
+			copy(hsh[:], s.Sum([]byte(subscription.config.URL)))
+
 			ctx = ctx.WithField("hsh", fmt.Sprintf("%x", hsh)).WithField("title", update.Title).WithField("nr", nr)
 
 			shownFeeds[hsh] = true
