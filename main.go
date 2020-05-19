@@ -108,7 +108,7 @@ func main() {
 			ctx.WithError(err).Error("Error starting server")
 		}
 		if *systemd {
-			daemon.SdNotify(false, "READY=1")
+			daemon.SdNotify(false, daemon.SdNotifyReady)
 		}
 		http.Serve(l, nil)
 	}(cfg.ctx)
