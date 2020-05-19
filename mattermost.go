@@ -39,7 +39,7 @@ type MattermostAttachment struct {
 }
 
 // NewFeedItem encapsulates a feed item to be published to Mattermost.
-func NewFeedItem(sub Subscription, item gofeed.Item) FeedItem {
+func NewFeedItem(sub *Subscription, item gofeed.Item) FeedItem {
 	return FeedItem{item, sub.config}
 }
 

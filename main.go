@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/sha1"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -25,7 +24,7 @@ import (
 // The Config holds the configuration and state for this application.
 type Config struct {
 	file       string
-	shownFeeds map[[sha1.Size]byte]bool
+	initialRun bool
 	interval   time.Duration
 	sanitizer  *bluemonday.Policy
 	ctx        *log.Entry
@@ -95,7 +94,7 @@ func main() {
 	}(cfg.ctx)
 
 	//get all of our feeds and process them initially
-	subscriptions := make([]Subscription, 0)
+	subscriptions := make([]*Subscription, 0)
 	for _, feed := range cfg.Feeds {
 		subscriptions = append(subscriptions, NewSubscription(feed))
 	}
@@ -118,13 +117,10 @@ func main() {
 }
 
 // run fetches all new feed items from subscriptions.
-func run(cfg *Config, subscriptions []Subscription, ch chan<- FeedItem) {
+func run(cfg *Config, subscriptions []*Subscription, ch chan<- FeedItem) {
 
-	initialRun := false
-	if cfg.shownFeeds == nil {
-		initialRun = true
-	}
-	shownFeeds := make(map[[sha1.Size]byte]bool, 0)
+	initialRun := cfg.initialRun
+	cfg.initialRun = false
 
 	for _, subscription := range subscriptions {
 		ctx := cfg.ctx.WithField("feed", subscription.config.Name)
@@ -135,15 +131,7 @@ func run(cfg *Config, subscriptions []Subscription, ch chan<- FeedItem) {
 		ctx = ctx.WithField("count", len(updates))
 
 		for _, update := range updates {
-			var hsh [sha1.Size]byte
-			s := sha1.New()
-			s.Write([]byte(update.Title))
-			s.Write([]byte(update.Link))
-			copy(hsh[:], s.Sum([]byte(subscription.config.URL)))
-
-			ctx = ctx.WithField("hsh", fmt.Sprintf("%x", hsh)).WithField("title", update.Title).WithField("nr", nr)
-
-			shownFeeds[hsh] = true
+			ctx = ctx.WithField("title", update.Title).WithField("nr", nr)
 
 			if initialRun && cfg.SkipInitial {
 				ctx.Debug("Skipping initial run")
@@ -153,17 +141,17 @@ func run(cfg *Config, subscriptions []Subscription, ch chan<- FeedItem) {
 				ctx.Debug("Skipping initial run")
 
 				continue
-			} else if _, ok := cfg.shownFeeds[hsh]; ok {
+			} else if subscription.Shown(update) {
 				ctx.Debug("Skipping already published")
 				continue
 			}
 
 			nr++
+			subscription.SetShown(update)
 			ch <- NewFeedItem(subscription, update)
 		}
 	}
 
-	cfg.shownFeeds = shownFeeds
 }
 
 // LoadConfig returns the config from json.
@@ -220,6 +208,8 @@ func LoadConfig() *Config {
 	config.sanitizer = bluemonday.StrictPolicy()
 
 	config.ctx.Debug("Configuration loaded")
+
+	config.initialRun = true
 
 	return &config
 }
