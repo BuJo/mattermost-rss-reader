@@ -75,7 +75,7 @@ func main() {
 
 	log.SetLevelFromString(*logLevel)
 
-	loghandlers := make([]log.Handler, 1)
+	loghandlers := make([]log.Handler, 0)
 
 	if *logGraylog != "" {
 		g, err := graylog.New(*logGraylog)
