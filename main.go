@@ -146,11 +146,12 @@ func run(cfg *Config, subscriptions []*Subscription, ch chan<- FeedItem) {
 		ctx := cfg.ctx.WithField("feed", subscription.config.Name)
 
 		updates, _ := subscription.getUpdates(ctx)
-		nr := 1
+		nr := 0
 
 		ctx = ctx.WithField("count", len(updates))
 
 		for _, update := range updates {
+			nr++
 			ctx = ctx.WithField("title", update.Title).WithField("nr", nr)
 
 			if initialRun && cfg.SkipInitial {
@@ -165,8 +166,6 @@ func run(cfg *Config, subscriptions []*Subscription, ch chan<- FeedItem) {
 				ctx.Debug("Skipping already published")
 				continue
 			}
-
-			nr++
 			subscription.SetShown(update)
 			ch <- NewFeedItem(subscription, update)
 		}
