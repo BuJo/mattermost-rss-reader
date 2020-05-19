@@ -167,7 +167,7 @@ func LoadConfig() *Config {
 
 	log.SetLevelFromString(*logLevel)
 
-	loghandlers := make([]log.Handler)
+	loghandlers := make([]log.Handler, 1)
 
 	if *logGraylog != "" {
 		g, err := graylog.New(*logGraylog)
