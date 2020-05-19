@@ -4,6 +4,10 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/BuJo/mattermost-rss-reader/journal"
+	"github.com/apex/log/handlers/graylog"
+	"github.com/apex/log/handlers/multi"
+	"github.com/apex/log/handlers/text"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -11,11 +15,7 @@ import (
 	"path"
 	"time"
 
-	"github.com/BuJo/mattermost-rss-reader/journal"
 	"github.com/apex/log"
-	"github.com/apex/log/handlers/graylog"
-	"github.com/apex/log/handlers/multi"
-	"github.com/apex/log/handlers/text"
 	"github.com/coreos/go-systemd/v22/daemon"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -72,6 +72,26 @@ func main() {
 		fmt.Println(path.Base(os.Args[0]), "version:", Version)
 		return
 	}
+
+	log.SetLevelFromString(*logLevel)
+
+	loghandlers := make([]log.Handler, 1)
+
+	if *logGraylog != "" {
+		g, err := graylog.New(*logGraylog)
+		if err != nil {
+			log.WithError(err).Error("Failed to initialize Graylog logger")
+		} else {
+			loghandlers = append(loghandlers, g)
+		}
+	}
+
+	if *systemd {
+		loghandlers = append(loghandlers, journal.New())
+	} else {
+		loghandlers = append(loghandlers, text.New(os.Stderr))
+	}
+	log.SetHandler(multi.New(loghandlers...))
 
 	cfg := LoadConfig()
 
@@ -157,26 +177,6 @@ func run(cfg *Config, subscriptions []*Subscription, ch chan<- FeedItem) {
 // LoadConfig returns the config from json.
 func LoadConfig() *Config {
 	var config Config
-
-	log.SetLevelFromString(*logLevel)
-
-	loghandlers := make([]log.Handler, 1)
-
-	if *logGraylog != "" {
-		g, err := graylog.New(*logGraylog)
-		if err != nil {
-			log.WithError(err).Error("Failed to initialize Graylog logger")
-		} else {
-			loghandlers = append(loghandlers, g)
-		}
-	}
-
-	if *systemd {
-		loghandlers = append(loghandlers, journal.New())
-	} else {
-		loghandlers = append(loghandlers, text.New(os.Stderr))
-	}
-	log.SetHandler(multi.New(loghandlers...))
 
 	config.ctx = log.WithFields(log.Fields{
 		"application": path.Base(os.Args[0]),

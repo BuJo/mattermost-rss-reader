@@ -1,6 +1,8 @@
 package main
 
 import (
+	"github.com/apex/log/handlers/memory"
+	"os"
 	"testing"
 
 	"github.com/apex/log"
@@ -69,4 +71,9 @@ func TestContargoHomepage(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestMain(m *testing.M) {
+	log.SetHandler(memory.New())
+	os.Exit(m.Run())
 }
