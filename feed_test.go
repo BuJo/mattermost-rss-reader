@@ -72,6 +72,29 @@ func TestContargoHomepage(t *testing.T) {
 		}
 	}
 }
+func TestNTV(t *testing.T) {
+	sub := NewSubscription(FeedConfig{
+		Name: "NTV",
+		URL:  "https://www.n-tv.de/rss",
+	})
+	updates, err := sub.getUpdates(log.WithField("feed", sub.config.Name))
+	if err != nil {
+		t.Error(err)
+	}
+	if len(updates) == 0 {
+		t.Error("No updates")
+		return
+	}
+
+	for _, u := range updates {
+		sub.SetShown(u)
+	}
+	for _, u := range updates {
+		if !sub.Shown(u) {
+			t.Error("Should count as already shown")
+		}
+	}
+}
 
 func TestMain(m *testing.M) {
 	log.SetHandler(memory.New())
