@@ -3,6 +3,7 @@
 ## Release v1.3 - 2020-05-20
 
 * Bugfixes for RSS deduplication
+  Handling akin to [RSS Duplicate Detection](http://www.xn--8ws00zhy3a.com/blog/2006/08/rss-dup-detection)
 
 ## Release v1.2 - 2020-04-29
 
