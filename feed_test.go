@@ -24,7 +24,7 @@ func TestFefe(t *testing.T) {
 	}
 }
 
-func XTestGoogleAlert(t *testing.T) {
+func TestGoogleAlert(t *testing.T) {
 	config := &Config{
 		sanitizer: bluemonday.StrictPolicy(),
 	}
@@ -38,7 +38,7 @@ func XTestGoogleAlert(t *testing.T) {
 		t.Error(err)
 	}
 	if len(updates) == 0 {
-		t.Fail()
+		// Too bad, but sometimes google alerts are indeed empty
 		return
 	}
 	item := NewFeedItem(sub, updates[0])
