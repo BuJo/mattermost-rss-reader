@@ -9,7 +9,7 @@ import (
 	"github.com/microcosm-cc/bluemonday"
 )
 
-func XTestFefe(t *testing.T) {
+func TestFefe(t *testing.T) {
 
 	sub := NewSubscription(FeedConfig{
 		Name: "Fefe",
