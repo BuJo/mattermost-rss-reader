@@ -1,5 +1,9 @@
 # mattermost-rss-reader Changelog
 
+## Release v1.3 - 2020-05-20
+
+* Bugfixes for RSS deduplication
+
 ## Release v1.2 - 2020-04-29
 
 * Add structured logging
