@@ -236,7 +236,7 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 		case "list":
 			str := ""
 			for _, f := range cfg.Feeds {
-				str += "* [" + f.Channel + "]" + f.Name + " (" + f.URL + ")\n"
+				str += "* [" + f.Channel + "] " + f.Name + " (" + f.URL + ")\n"
 			}
 
 			defer ctx.Trace("Feed listing").Stop(&err)
