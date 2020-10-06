@@ -3,7 +3,6 @@ module github.com/BuJo/mattermost-rss-reader
 go 1.12
 
 require (
-	github.com/PuerkitoBio/goquery v1.5.1 // indirect
 	github.com/andybalholm/cascadia v1.2.0 // indirect
 	github.com/apex/log v1.9.0
 	github.com/coreos/go-systemd/v22 v22.1.0
