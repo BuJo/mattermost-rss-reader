@@ -1,5 +1,9 @@
 # mattermost-rss-reader Changelog
 
+## Release v1.4 - 2020-10-06
+
+* Show channel name in list command
+
 ## Release v1.3 - 2020-05-20
 
 * Bugfixes for RSS deduplication
