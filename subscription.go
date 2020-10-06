@@ -51,6 +51,7 @@ func (s *Subscription) getUpdates(ctx *log.Entry) (updates []gofeed.Item, err er
 	return updates, nil
 }
 
+// SetShown sets the given feed item to be already shown
 func (s *Subscription) SetShown(item gofeed.Item) {
 	s.shown = append([]feedID{{
 		GUID:  item.GUID,
@@ -62,6 +63,7 @@ func (s *Subscription) SetShown(item gofeed.Item) {
 	}
 }
 
+// Shown returns true if the given feed item has already been shown
 func (s *Subscription) Shown(item gofeed.Item) bool {
 	for _, i := range s.shown {
 		i := gofeed.Item{
@@ -76,6 +78,7 @@ func (s *Subscription) Shown(item gofeed.Item) bool {
 	return false
 }
 
+// Equal compares two feed items
 func (s *Subscription) Equal(u1 gofeed.Item, u2 gofeed.Item) bool {
 	if u1.GUID != "" && u2.GUID != "" {
 		// If GUIDs are available
@@ -87,15 +90,14 @@ func (s *Subscription) Equal(u1 gofeed.Item, u2 gofeed.Item) bool {
 			}
 
 			return true
-		} else {
-			// Handle RSS Feeds regenerating GUIDs each call
-			if u1.Link == u2.Link && u1.Title == u2.Title {
-				// Suspicious, believe they are indeed the same
-				return true
-			}
-
-			return false
 		}
+		// Handle RSS Feeds regenerating GUIDs each call
+		if u1.Link == u2.Link && u1.Title == u2.Title {
+			// Suspicious, believe they are indeed the same
+			return true
+		}
+
+		return false
 	} else if u1.Link != "" && u2.Link != "" {
 		// If Links are available
 		if u1.Link == u2.Link && u1.Title == u2.Title {
