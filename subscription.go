@@ -11,10 +11,10 @@ type Subscription struct {
 	config  FeedConfig
 	updates []gofeed.Item
 
-	shown []feedId
+	shown []feedID
 }
 
-type feedId struct {
+type feedID struct {
 	GUID  string
 	Title string
 	Link  string
@@ -27,7 +27,7 @@ func NewSubscription(config FeedConfig) *Subscription {
 		parser:  fp,
 		config:  config,
 		updates: make([]gofeed.Item, 0),
-		shown:   make([]feedId, 0),
+		shown:   make([]feedID, 0),
 	}
 }
 
@@ -52,7 +52,7 @@ func (s *Subscription) getUpdates(ctx *log.Entry) (updates []gofeed.Item, err er
 }
 
 func (s *Subscription) SetShown(item gofeed.Item) {
-	s.shown = append([]feedId{{
+	s.shown = append([]feedID{{
 		GUID:  item.GUID,
 		Title: item.Title,
 		Link:  item.Link,
