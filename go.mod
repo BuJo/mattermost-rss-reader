@@ -5,7 +5,7 @@ go 1.12
 require (
 	github.com/andybalholm/cascadia v1.2.0 // indirect
 	github.com/apex/log v1.9.0
-	github.com/coreos/go-systemd/v22 v22.1.0
+	github.com/coreos/go-systemd/v22 v22.3.2
 	github.com/microcosm-cc/bluemonday v1.0.16
 	github.com/mmcdole/gofeed v1.1.3
 	github.com/mmcdole/goxpp v0.0.0-20200921145534-2f3784f67354 // indirect
