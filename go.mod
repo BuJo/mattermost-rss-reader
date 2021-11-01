@@ -7,7 +7,7 @@ require (
 	github.com/apex/log v1.9.0
 	github.com/coreos/go-systemd/v22 v22.1.0
 	github.com/microcosm-cc/bluemonday v1.0.4
-	github.com/mmcdole/gofeed v1.1.0
+	github.com/mmcdole/gofeed v1.1.3
 	github.com/mmcdole/goxpp v0.0.0-20200921145534-2f3784f67354 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/pkg/errors v0.9.1 // indirect
