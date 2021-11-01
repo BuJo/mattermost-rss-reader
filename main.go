@@ -4,10 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/BuJo/mattermost-rss-reader/journal"
-	"github.com/apex/log/handlers/graylog"
-	"github.com/apex/log/handlers/multi"
-	"github.com/apex/log/handlers/text"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -15,7 +11,11 @@ import (
 	"path"
 	"time"
 
+	"github.com/BuJo/mattermost-rss-reader/journal"
 	"github.com/apex/log"
+	"github.com/apex/log/handlers/graylog"
+	"github.com/apex/log/handlers/multi"
+	"github.com/apex/log/handlers/text"
 	"github.com/coreos/go-systemd/v22/daemon"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -96,22 +96,24 @@ func main() {
 	cfg := LoadConfig()
 
 	// Set up command server
-	go func(ctx *log.Entry) {
-		http.HandleFunc("/feeds", feedCommandHandler(cfg))
-		http.Handle("/actuator/metrics", promhttp.Handler())
-		http.HandleFunc("/actuator/health", healthHandler(cfg))
+	if *httpBind != "" {
+		go func(ctx *log.Entry) {
+			http.HandleFunc("/feeds", feedCommandHandler(cfg))
+			http.Handle("/actuator/metrics", promhttp.Handler())
+			http.HandleFunc("/actuator/health", healthHandler(cfg))
 
-		ctx.Infof("Listening for commands on http://%s/feeds\n", *httpBind)
+			ctx.Infof("Listening for commands on http://%s/feeds\n", *httpBind)
 
-		l, err := net.Listen("tcp", *httpBind)
-		if err != nil {
-			ctx.WithError(err).Error("Error starting server")
-		}
-		if *systemd {
-			daemon.SdNotify(false, daemon.SdNotifyReady)
-		}
-		http.Serve(l, nil)
-	}(cfg.ctx)
+			l, err := net.Listen("tcp", *httpBind)
+			if err != nil {
+				ctx.WithError(err).Error("Error starting server")
+			}
+			if *systemd {
+				daemon.SdNotify(false, daemon.SdNotifyReady)
+			}
+			http.Serve(l, nil)
+		}(cfg.ctx)
+	}
 
 	//get all of our feeds and process them initially
 	subscriptions := make([]*Subscription, 0)

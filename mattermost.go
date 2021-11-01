@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"regexp"
 	"strings"
@@ -11,6 +13,8 @@ import (
 	"github.com/apex/log"
 	"github.com/mmcdole/gofeed"
 )
+
+const OneMegabyte = 1 << (10 * 2)
 
 // The FeedItem hold information for a single feed update.
 type FeedItem struct {
@@ -117,6 +121,17 @@ func toMattermost(config *Config, item FeedItem) (err error) {
 	}
 	defer response.Body.Close()
 
+	if response.StatusCode == 200 {
+		// success
+		return
+	}
+
+	data, err := ioutil.ReadAll(io.LimitReader(response.Body, OneMegabyte))
+	if err != nil {
+		ctx.WithError(err).Error("Failed reading Mattermost error message")
+		return
+	}
+	ctx.Warnf("Mattermost response: %s", string(data))
 	return nil
 }
 
