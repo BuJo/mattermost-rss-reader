@@ -32,11 +32,11 @@ func NewSubscription(config FeedConfig) *Subscription {
 }
 
 // getUpdates fetches feed updates for specified subscription
-func (s *Subscription) getUpdates(ctx *log.Entry) (updates []gofeed.Item, err error) {
+func (s *Subscription) getUpdates(ctx *log.Entry) (updates []feedUpdate, err error) {
 
 	defer ctx.WithField("url", s.config.URL).Trace("Get updates").Stop(&err)
 
-	updates = make([]gofeed.Item, 0)
+	updates = make([]feedUpdate, 0)
 
 	var feed *gofeed.Feed
 	feed, err = s.parser.ParseURL(s.config.URL)
@@ -45,14 +45,14 @@ func (s *Subscription) getUpdates(ctx *log.Entry) (updates []gofeed.Item, err er
 	}
 
 	for _, i := range feed.Items {
-		updates = append(updates, *i)
+		updates = append(updates, feedUpdate{*i})
 	}
 
 	return updates, nil
 }
 
 // SetShown sets the given feed item to be already shown
-func (s *Subscription) SetShown(item gofeed.Item) {
+func (s *Subscription) SetShown(item feedUpdate) {
 	s.shown = append([]feedID{{
 		GUID:  item.GUID,
 		Title: item.Title,
@@ -64,49 +64,16 @@ func (s *Subscription) SetShown(item gofeed.Item) {
 }
 
 // Shown returns true if the given feed item has already been shown
-func (s *Subscription) Shown(item gofeed.Item) bool {
+func (s *Subscription) Shown(item feedUpdate) bool {
 	for _, i := range s.shown {
-		i := gofeed.Item{
+		i := feedUpdate{gofeed.Item{
 			Title: i.Title,
 			Link:  i.Link,
 			GUID:  i.GUID,
-		}
-		if s.Equal(i, item) {
+		}}
+		if i.Equal(item) {
 			return true
 		}
 	}
 	return false
-}
-
-// Equal compares two feed items
-func (s *Subscription) Equal(u1 gofeed.Item, u2 gofeed.Item) bool {
-	if u1.GUID != "" && u2.GUID != "" {
-		// If GUIDs are available
-		if u1.GUID == u2.GUID {
-			// Handle RSS Feeds
-			if u1.Link != u2.Link {
-				// Suspicious
-				return false
-			}
-
-			return true
-		}
-		// Handle RSS Feeds regenerating GUIDs each call
-		if u1.Link == u2.Link && u1.Title == u2.Title {
-			// Suspicious, believe they are indeed the same
-			return true
-		}
-
-		return false
-	} else if u1.Link != "" && u2.Link != "" {
-		// If Links are available
-		if u1.Link == u2.Link && u1.Title == u2.Title {
-			// Assume the Link+Title to be authorative
-			return true
-		}
-
-		return false
-	} else {
-		return u1.Title == u2.Title
-	}
 }

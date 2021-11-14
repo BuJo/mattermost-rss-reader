@@ -65,7 +65,7 @@ func TestContargoHomepage(t *testing.T) {
 	for i1, u1 := range updates {
 		for i2, u2 := range updates {
 			if i1 != i2 {
-				if sub.Equal(u1, u2) {
+				if u1.Equal(u2) {
 					t.Error("Should not equal", u1.GUID, u2.GUID, u1.Link, u2.Link)
 				}
 			}

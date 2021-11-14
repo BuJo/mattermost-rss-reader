@@ -11,14 +11,13 @@ import (
 	"strings"
 
 	"github.com/apex/log"
-	"github.com/mmcdole/gofeed"
 )
 
 const OneMegabyte = 1 << (10 * 2)
 
 // The FeedItem hold information for a single feed update.
 type FeedItem struct {
-	gofeed.Item
+	feedUpdate
 	FeedConfig
 }
 
@@ -43,7 +42,7 @@ type MattermostAttachment struct {
 }
 
 // NewFeedItem encapsulates a feed item to be published to Mattermost.
-func NewFeedItem(sub *Subscription, item gofeed.Item) FeedItem {
+func NewFeedItem(sub *Subscription, item feedUpdate) FeedItem {
 	return FeedItem{item, sub.config}
 }
 
