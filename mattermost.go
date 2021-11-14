@@ -13,7 +13,7 @@ import (
 	"github.com/apex/log"
 )
 
-const OneMegabyte = 1 << (10 * 2)
+const oneMegabyte = 1 << (10 * 2)
 
 // The FeedItem hold information for a single feed update.
 type FeedItem struct {
@@ -125,7 +125,7 @@ func toMattermost(config *Config, item FeedItem) (err error) {
 		return
 	}
 
-	data, err := ioutil.ReadAll(io.LimitReader(response.Body, OneMegabyte))
+	data, err := ioutil.ReadAll(io.LimitReader(response.Body, oneMegabyte))
 	if err != nil {
 		ctx.WithError(err).Error("Failed reading Mattermost error message")
 		return
