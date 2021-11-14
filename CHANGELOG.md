@@ -1,5 +1,13 @@
 # mattermost-rss-reader Changelog
 
+## Release v1.5 - 2021-11-14
+
+* Add ability to disable the command handler [[bovpm]]
+* Smaller docker image [[bovpm]]
+* Dependency updates
+
+[bovpm]: https://github.com/bovepm
+
 ## Release v1.4 - 2020-10-06
 
 * Show channel name in list command
