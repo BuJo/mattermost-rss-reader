@@ -112,13 +112,23 @@ func toMattermost(config *Config, item FeedItem) (err error) {
 	defer ctx.Trace("Posting to Mattermost").Stop(&err)
 
 	buff := new(bytes.Buffer)
-	json.NewEncoder(buff).Encode(msg)
+	err = json.NewEncoder(buff).Encode(msg)
+	if err != nil {
+		ctx.WithError(err).Error("Failed encoding Mattermost error message")
+		return err
+	}
+
 	var response *http.Response
 	response, err = http.Post(config.WebhookURL, "application/json;charset=utf-8", buff)
 	if err != nil {
 		return err
 	}
-	defer response.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			ctx.WithError(err).Debug("Failed closing response")
+		}
+	}(response.Body)
 
 	if response.StatusCode == 200 {
 		// success
@@ -128,7 +138,7 @@ func toMattermost(config *Config, item FeedItem) (err error) {
 	data, err := ioutil.ReadAll(io.LimitReader(response.Body, oneMegabyte))
 	if err != nil {
 		ctx.WithError(err).Error("Failed reading Mattermost error message")
-		return
+		return err
 	}
 	ctx.Warnf("Mattermost response: %s", string(data))
 	return nil
@@ -139,6 +149,17 @@ func toMattermost(config *Config, item FeedItem) (err error) {
 // See https://docs.mattermost.com/developer/slash-commands.html fore more
 // documentation.
 func feedCommandHandler(cfg *Config) http.HandlerFunc {
+
+	writeSimpleResponse := func(ctx *log.Entry, m string, w http.ResponseWriter) {
+		j, err := json.Marshal(MattermostMessage{Message: m})
+		if err != nil {
+			ctx.WithError(err).Warn("Failed responding to command")
+		}
+		_, err = w.Write(j)
+		if err != nil {
+			ctx.WithError(err).Warn("Failed responding to command")
+		}
+	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
 
@@ -169,16 +190,14 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 		switch action {
 		case "add":
 			if len(tokens) < 3 {
-				j, _ := json.Marshal(MattermostMessage{Message: "Usage: add <name> <url> [iconURL] [options]*"})
-				w.Write(j)
-				return
+				writeSimpleResponse(ctx, "Usage: add <name> <url> [iconURL] [options]*", w)
 			}
 
 			name := tokens[1]
 			url := tokens[2]
 			iconURL := ""
 			detailed := false
-			displayname := ""
+			displayName := ""
 
 			if len(tokens) >= 4 {
 				iconURL = tokens[3]
@@ -188,9 +207,7 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 				if f.Name == name {
 					ctx.WithField("feed", name).Info("Feed already exists")
 
-					j, _ := json.Marshal(MattermostMessage{Message: "Feed already exists, delete it first."})
-					w.Write(j)
-					return
+					writeSimpleResponse(ctx, "Feed already exists, delete it first.", w)
 				}
 			}
 
@@ -209,7 +226,7 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 							detailed = false
 						}
 					case "user", "username":
-						displayname = val
+						displayName = val
 					}
 				}
 			}
@@ -220,33 +237,31 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 				IconURL:  iconURL,
 				Channel:  channel,
 				Detailed: detailed,
-				Username: displayname,
+				Username: displayName,
 			})
 
 			defer ctx.WithFields(log.Fields{
 				"feed": name,
 				"url":  url,
-			}).Trace("Fedd added").Stop(&err)
+			}).Trace("Feed added").Stop(&err)
 
 			cfg.SaveFeeds()
 
-			j, _ := json.Marshal(MattermostMessage{Message: "Added feed."})
-			w.Write(j)
+			writeSimpleResponse(ctx, "Added feed.", w)
 		case "remove":
 			name := tokens[1]
-			newlist := make([]FeedConfig, 0, len(cfg.Feeds)-1)
+			newList := make([]FeedConfig, 0, len(cfg.Feeds)-1)
 			for _, f := range cfg.Feeds {
 				if f.Name != name {
-					newlist = append(newlist, f)
+					newList = append(newList, f)
 				}
 			}
-			cfg.Feeds = newlist
+			cfg.Feeds = newList
 			cfg.SaveFeeds()
 
 			defer ctx.WithField("feed", name).Trace("Feed deleted").Stop(&err)
 
-			j, _ := json.Marshal(MattermostMessage{Message: "Removed feed."})
-			w.Write(j)
+			writeSimpleResponse(ctx, "Removed feed.", w)
 		case "list":
 			str := ""
 			for _, f := range cfg.Feeds {
@@ -255,13 +270,11 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 
 			defer ctx.Trace("Feed listing").Stop(&err)
 
-			j, _ := json.Marshal(MattermostMessage{Message: str})
-			w.Write(j)
+			writeSimpleResponse(ctx, str, w)
 		default:
 			defer ctx.Trace("Unknown command").Stop(&err)
 
-			j, _ := json.Marshal(MattermostMessage{Message: "Unknown command"})
-			w.Write(j)
+			writeSimpleResponse(ctx, "Unknown command", w)
 		}
 
 	}
