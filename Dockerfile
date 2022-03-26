@@ -1,7 +1,7 @@
 #
 # build stage
 #
-FROM golang:1.17-alpine AS builder
+FROM golang:1.18-alpine AS builder
 
 RUN apk add git
 RUN go get -d -v github.com/mmcdole/gofeed
