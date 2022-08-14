@@ -1,5 +1,10 @@
 # mattermost-rss-reader Changelog
 
+## Release v1.6 - 2022-08-14
+
+* Smaller docker image
+* Dependency updates
+
 ## Release v1.5 - 2021-11-14
 
 * Add ability to disable the command handler [[bovpm]]
