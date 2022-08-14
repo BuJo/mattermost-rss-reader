@@ -16,7 +16,7 @@ test: *.go
 
 check: *.go
 	@test -z $(shell gofmt -l $? | tee /dev/stderr) || echo "[WARN] Fix formatting issues with 'make fmt'"
-	@which golint >/dev/null 2>&1 && golint $? || true
+	@which staticcheck >/dev/null 2>&1 && staticcheck $? || true
 	@go vet $?
 
 clean:
