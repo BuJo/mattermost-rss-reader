@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"regexp"
 	"strings"
@@ -135,7 +134,7 @@ func toMattermost(config *Config, item FeedItem) (err error) {
 		return
 	}
 
-	data, err := ioutil.ReadAll(io.LimitReader(response.Body, oneMegabyte))
+	data, err := io.ReadAll(io.LimitReader(response.Body, oneMegabyte))
 	if err != nil {
 		ctx.WithError(err).Error("Failed reading Mattermost error message")
 		return err

@@ -11,13 +11,8 @@ func (u1 feedUpdate) Equal(u2 feedUpdate) bool {
 	if u1.GUID != "" && u2.GUID != "" {
 		// If GUIDs are available
 		if u1.GUID == u2.GUID {
-			// Handle RSS Feeds
-			if u1.Link != u2.Link {
-				// Suspicious
-				return false
-			}
-
-			return true
+			// GUID same but link different is suspicious
+			return u1.Link == u2.Link
 		}
 		// Handle RSS Feeds regenerating GUIDs each call
 		if u1.Link == u2.Link && u1.Title == u2.Title {

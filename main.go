@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -187,7 +186,7 @@ func LoadConfig() *Config {
 		"version":     Version,
 	})
 
-	raw, err := ioutil.ReadFile(*cPath)
+	raw, err := os.ReadFile(*cPath)
 	if err != nil {
 		config.ctx.WithError(err).Fatal("Error reading config file")
 	}
@@ -219,7 +218,7 @@ func LoadConfig() *Config {
 
 // LoadFeeds will load feeds from a separate feed file.
 func (c *Config) LoadFeeds() error {
-	raw, err := ioutil.ReadFile(c.FeedFile)
+	raw, err := os.ReadFile(c.FeedFile)
 	if err != nil {
 		c.ctx.WithError(err).Error("Error reading feed file")
 		return err
@@ -254,7 +253,7 @@ func (c *Config) SaveFeeds() {
 		return
 	}
 
-	tmpfile, err := ioutil.TempFile("", "mamo-rss-reader")
+	tmpfile, err := os.CreateTemp("", "mamo-rss-reader")
 	if err != nil {
 		c.ctx.WithError(err).Error("Error opening temporary file for feeds")
 		return
