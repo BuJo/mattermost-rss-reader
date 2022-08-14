@@ -1,27 +1,25 @@
 #
 # build stage
 #
-FROM golang:1.17-alpine AS builder
+FROM golang:1.19-alpine AS builder
 
 RUN apk add git
-RUN go get -d -v github.com/mmcdole/gofeed
 
-COPY . /go/src/app
-WORKDIR /go/src/app
+COPY . /build
+WORKDIR /build
 ARG release
-RUN go build -o main -ldflags "-s -w -X main.Version=${release:-$(git describe --abbrev=0 --tags)-$(git rev-list -1 --abbrev-commit HEAD)}" .
+RUN CGO_ENABLED=0 go build -o main -ldflags "-s -w -extldflags '-static' -X main.Version=${release:-$(git describe --abbrev=0 --tags)-$(git rev-list -1 --abbrev-commit HEAD)}" .
 
 #
 # runtime image
 #
-FROM alpine:latest AS runtime
-
-RUN apk add --no-cache ca-certificates
+FROM scratch AS runtime
 
 WORKDIR /app
 
-COPY --from=builder /go/src/app/main .
+COPY --from=builder /build/main .
 COPY config.json ./config.json
+COPY --from=alpine:latest /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 EXPOSE 9090
 
