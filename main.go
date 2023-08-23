@@ -4,17 +4,13 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
 	"path"
 	"time"
 
-	"github.com/BuJo/mattermost-rss-reader/journal"
-	"github.com/apex/log"
-	"github.com/apex/log/handlers/graylog"
-	"github.com/apex/log/handlers/multi"
-	"github.com/apex/log/handlers/text"
 	"github.com/coreos/go-systemd/v22/daemon"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -26,7 +22,7 @@ type Config struct {
 	initialRun bool
 	interval   time.Duration
 	sanitizer  *bluemonday.Policy
-	ctx        *log.Entry
+	log        *slog.Logger
 
 	WebhookURL  string `json:"WebhookURL"`
 	Token       string `json:"Token,omitempty"`
@@ -56,8 +52,6 @@ var cPath = flag.String("config", "./config.json", "Path to the config file.")
 var httpBind = flag.String("bind", "127.0.0.1:9090", "HTTP Binding")
 var environment = flag.String("environment", "dev", "Runtime environment")
 var printVersion = flag.Bool("version", false, "Show Version")
-var logLevel = flag.String("loglevel", "info", "Log level (debug, _info_, warn, error, fatal)")
-var logGraylog = flag.String("graylog", "", "Optional Graylog host for logging")
 var systemd = flag.Bool("systemd", false, "systemd integration")
 
 // Version of this application.
@@ -72,46 +66,26 @@ func main() {
 		return
 	}
 
-	log.SetLevelFromString(*logLevel)
-
-	loghandlers := make([]log.Handler, 0)
-
-	if *logGraylog != "" {
-		g, err := graylog.New(*logGraylog)
-		if err != nil {
-			log.WithError(err).Error("Failed to initialize Graylog logger")
-		} else {
-			loghandlers = append(loghandlers, g)
-		}
-	}
-
-	if *systemd {
-		loghandlers = append(loghandlers, journal.New())
-	} else {
-		loghandlers = append(loghandlers, text.New(os.Stderr))
-	}
-	log.SetHandler(multi.New(loghandlers...))
-
 	cfg := LoadConfig()
 
 	// Set up command server
 	if *httpBind != "" {
-		go func(ctx *log.Entry) {
+		go func() {
 			http.HandleFunc("/feeds", feedCommandHandler(cfg))
 			http.Handle("/actuator/metrics", promhttp.Handler())
 			http.HandleFunc("/actuator/health", healthHandler(cfg))
 
-			ctx.Infof("Listening for commands on http://%s/feeds\n", *httpBind)
+			cfg.log.Info("Listening for commands\n", "url", "http://"+*httpBind+"/feeds")
 
 			l, err := net.Listen("tcp", *httpBind)
 			if err != nil {
-				ctx.WithError(err).Error("Error starting server")
+				cfg.log.Error("Error starting server", "err", err)
 			}
 			if *systemd {
 				daemon.SdNotify(false, daemon.SdNotifyReady)
 			}
 			http.Serve(l, nil)
-		}(cfg.ctx)
+		}()
 	}
 
 	//get all of our feeds and process them initially
@@ -124,7 +98,7 @@ func main() {
 	updateTimer := time.Tick(cfg.interval)
 
 	// Run once at start
-	cfg.ctx.WithField("interval", cfg.interval).Info("Ready to fetch feeds")
+	cfg.log.Info("Ready to fetch feeds", slog.String("interval", cfg.interval.String()))
 	run(cfg, subscriptions, feedItems)
 
 	for {
@@ -144,30 +118,30 @@ func run(cfg *Config, subscriptions []*Subscription, ch chan<- FeedItem) {
 	cfg.initialRun = false
 
 	for _, subscription := range subscriptions {
-		ctx := cfg.ctx.WithField("feed", subscription.config.Name)
+		log := cfg.log.With(slog.String("feed", subscription.config.Name))
 
-		updates, _ := subscription.getUpdates(ctx)
+		updates, _ := subscription.getUpdates(log)
 		nr := 0
 
-		ctx = ctx.WithField("count", len(updates))
+		log = log.With("count", len(updates))
 
 		for _, update := range updates {
 			nr++
 			shown := subscription.Shown(update)
 			subscription.SetShown(update)
 
-			ctx = ctx.WithField("title", update.Title).WithField("nr", nr)
+			log = log.With("title", update.Title).With("nr", nr)
 
 			if initialRun && cfg.SkipInitial {
-				ctx.Debug("Skipping initial run")
+				log.Debug("Skipping initial run")
 
 				continue
 			} else if initialRun && nr > cfg.ShowInitial {
-				ctx.Debug("Skipping initial run")
+				log.Debug("Skipping initial run")
 
 				continue
 			} else if shown {
-				ctx.Debug("Skipping already published")
+				log.Debug("Skipping already published")
 				continue
 			}
 
@@ -180,20 +154,21 @@ func run(cfg *Config, subscriptions []*Subscription, ch chan<- FeedItem) {
 func LoadConfig() *Config {
 	var config Config
 
-	config.ctx = log.WithFields(log.Fields{
-		"application": path.Base(os.Args[0]),
-		"environment": *environment,
-		"version":     Version,
-	})
+	config.log = slog.With(
+		slog.String("application", path.Base(os.Args[0])),
+		slog.String("environment", *environment),
+		slog.String("version", Version),
+	)
 
 	raw, err := os.ReadFile(*cPath)
 	if err != nil {
-		config.ctx.WithError(err).Fatal("Error reading config file")
+		config.log.With("err", err).Error("Error reading config file")
+		os.Exit(1)
 	}
 
 	config.file = *cPath
 	if err = json.Unmarshal(raw, &config); err != nil {
-		config.ctx.WithError(err).Fatal("Error reading config file")
+		config.log.Error("Error reading config file", "err", err)
 	}
 
 	interval, err := time.ParseDuration(config.Interval)
@@ -209,7 +184,7 @@ func LoadConfig() *Config {
 
 	config.sanitizer = bluemonday.StrictPolicy()
 
-	config.ctx.Debug("Configuration loaded")
+	config.log.Debug("Configuration loaded")
 
 	config.initialRun = true
 
@@ -220,12 +195,13 @@ func LoadConfig() *Config {
 func (c *Config) LoadFeeds() error {
 	raw, err := os.ReadFile(c.FeedFile)
 	if err != nil {
-		c.ctx.WithError(err).Error("Error reading feed file")
+		c.log.Error("Error reading feed file", "err", err)
 		return err
 	}
 
 	if err = json.Unmarshal(raw, &c.Feeds); err != nil {
-		c.ctx.WithError(err).Fatal("Error reading feed file")
+		c.log.Error("Error reading feed file", "err", err)
+		os.Exit(1)
 	}
 
 	// Remove bad feeds
@@ -243,35 +219,35 @@ func (c *Config) LoadFeeds() error {
 // SaveFeeds will save the current list of feeds.
 func (c *Config) SaveFeeds() {
 	if c.FeedFile == "" {
-		c.ctx.Warn("Not saving feeds, configure `FeedFile`.")
+		c.log.Warn("Not saving feeds, configure `FeedFile`.")
 		return
 	}
 
 	raw, err := json.MarshalIndent(c.Feeds, "", "  ")
 	if err != nil {
-		c.ctx.WithError(err).Error("Error serializing feeds")
+		c.log.Error("Error serializing feeds", "err", err)
 		return
 	}
 
 	tmpfile, err := os.CreateTemp("", "mamo-rss-reader")
 	if err != nil {
-		c.ctx.WithError(err).Error("Error opening temporary file for feeds")
+		c.log.Error("Error opening temporary file for feeds", "err", err)
 		return
 	}
 
 	if _, err = tmpfile.Write(raw); err != nil {
-		c.ctx.WithError(err).Error("Error writing config file")
+		c.log.Error("Error writing config file", "err", err)
 		return
 	}
 	if err = tmpfile.Close(); err != nil {
-		c.ctx.WithError(err).Error("Error writing config file")
+		c.log.Error("Error writing config file", "err", err)
 		return
 	}
 
 	if err = os.Rename(tmpfile.Name(), c.FeedFile); err != nil {
-		c.ctx.WithError(err).Error("Error writing config file")
+		c.log.Error("Error writing config file", "err", err)
 		return
 	}
 
-	c.ctx.Info("Saved feeds.")
+	c.log.Info("Saved feeds.")
 }

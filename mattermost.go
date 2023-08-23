@@ -5,11 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strings"
-
-	"github.com/apex/log"
 )
 
 const oneMegabyte = 1 << (10 * 2)
@@ -107,13 +106,13 @@ func toMattermost(config *Config, item FeedItem) (err error) {
 		msg.Icon = config.IconURL
 	}
 
-	ctx := config.ctx.WithField("channel", msg.Channel).WithField("user", msg.Username)
-	defer ctx.Trace("Posting to Mattermost").Stop(&err)
+	log := config.log.With("channel", msg.Channel).With("user", msg.Username)
+	defer log.Info("Posting to Mattermost")
 
 	buff := new(bytes.Buffer)
 	err = json.NewEncoder(buff).Encode(msg)
 	if err != nil {
-		ctx.WithError(err).Error("Failed encoding Mattermost error message")
+		log.Error("Failed encoding Mattermost error message", "err", err)
 		return err
 	}
 
@@ -125,7 +124,7 @@ func toMattermost(config *Config, item FeedItem) (err error) {
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
 		if err != nil {
-			ctx.WithError(err).Debug("Failed closing response")
+			log.Debug("Failed closing response", "err", err)
 		}
 	}(response.Body)
 
@@ -134,12 +133,12 @@ func toMattermost(config *Config, item FeedItem) (err error) {
 		return
 	}
 
-	data, err := io.ReadAll(io.LimitReader(response.Body, oneMegabyte))
+	_, err = io.ReadAll(io.LimitReader(response.Body, oneMegabyte))
 	if err != nil {
-		ctx.WithError(err).Error("Failed reading Mattermost error message")
+		log.Error("Failed reading Mattermost error message", "err", err)
 		return err
 	}
-	ctx.Warnf("Mattermost response: %s", string(data))
+
 	return nil
 }
 
@@ -149,20 +148,19 @@ func toMattermost(config *Config, item FeedItem) (err error) {
 // documentation.
 func feedCommandHandler(cfg *Config) http.HandlerFunc {
 
-	writeSimpleResponse := func(ctx *log.Entry, m string, w http.ResponseWriter) {
+	writeSimpleResponse := func(log *slog.Logger, m string, w http.ResponseWriter) {
 		j, err := json.Marshal(MattermostMessage{Message: m})
 		if err != nil {
-			ctx.WithError(err).Warn("Failed responding to command")
+			log.Warn("Failed responding to command", "err", err)
 		}
 		_, err = w.Write(j)
 		if err != nil {
-			ctx.WithError(err).Warn("Failed responding to command")
+			log.Warn("Failed responding to command", "err", err)
 		}
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		var err error
 		token := r.PostFormValue("token")
 
 		if token != cfg.Token {
@@ -173,10 +171,10 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 		username := r.PostFormValue("user_name")
 		channel := r.PostFormValue("channel_name")
 
-		ctx := cfg.ctx.WithFields(log.Fields{
-			"user":    username,
-			"channel": channel,
-		})
+		log := cfg.log.With(
+			slog.String("user", username),
+			slog.String("channel", channel),
+		)
 
 		w.Header().Set("Content-Type", "application/json")
 
@@ -189,7 +187,7 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 		switch action {
 		case "add":
 			if len(tokens) < 3 {
-				writeSimpleResponse(ctx, "Usage: add <name> <url> [iconURL] [options]*", w)
+				writeSimpleResponse(log, "Usage: add <name> <url> [iconURL] [options]*", w)
 			}
 
 			name := tokens[1]
@@ -204,9 +202,9 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 
 			for _, f := range cfg.Feeds {
 				if f.Name == name {
-					ctx.WithField("feed", name).Info("Feed already exists")
+					log.Info("Feed already exists", "feed", name)
 
-					writeSimpleResponse(ctx, "Feed already exists, delete it first.", w)
+					writeSimpleResponse(log, "Feed already exists, delete it first.", w)
 				}
 			}
 
@@ -239,14 +237,11 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 				Username: displayName,
 			})
 
-			defer ctx.WithFields(log.Fields{
-				"feed": name,
-				"url":  url,
-			}).Trace("Feed added").Stop(&err)
+			defer log.Info("Feed added", "feed", name, "url", url)
 
 			cfg.SaveFeeds()
 
-			writeSimpleResponse(ctx, "Added feed.", w)
+			writeSimpleResponse(log, "Added feed.", w)
 		case "remove":
 			name := tokens[1]
 			newList := make([]FeedConfig, 0, len(cfg.Feeds)-1)
@@ -258,22 +253,22 @@ func feedCommandHandler(cfg *Config) http.HandlerFunc {
 			cfg.Feeds = newList
 			cfg.SaveFeeds()
 
-			defer ctx.WithField("feed", name).Trace("Feed deleted").Stop(&err)
+			defer log.Info("Feed deleted", "feed", name)
 
-			writeSimpleResponse(ctx, "Removed feed.", w)
+			writeSimpleResponse(log, "Removed feed.", w)
 		case "list":
 			str := ""
 			for _, f := range cfg.Feeds {
 				str += "* [" + f.Channel + "] " + f.Name + " (" + f.URL + ")\n"
 			}
 
-			defer ctx.Trace("Feed listing").Stop(&err)
+			defer log.Info("Feed listing")
 
-			writeSimpleResponse(ctx, str, w)
+			writeSimpleResponse(log, str, w)
 		default:
-			defer ctx.Trace("Unknown command").Stop(&err)
+			defer log.Info("Unknown command", "command", action)
 
-			writeSimpleResponse(ctx, "Unknown command", w)
+			writeSimpleResponse(log, "Unknown command", w)
 		}
 
 	}

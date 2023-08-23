@@ -1,11 +1,10 @@
 package main
 
 import (
-	"github.com/apex/log/handlers/memory"
+	"log/slog"
 	"os"
 	"testing"
 
-	"github.com/apex/log"
 	"github.com/microcosm-cc/bluemonday"
 )
 
@@ -15,7 +14,7 @@ func TestFefe(t *testing.T) {
 		Name: "Fefe",
 		URL:  "https://blog.fefe.de/rss.xml?html",
 	})
-	updates, err := sub.getUpdates(log.WithField("feed", sub.config.Name))
+	updates, err := sub.getUpdates(slog.With("feed", sub.config.Name))
 	if err != nil {
 		t.Error(err)
 	}
@@ -33,7 +32,7 @@ func TestGoogleAlert(t *testing.T) {
 		Name: "GoogleAlert",
 		URL:  "https://www.google.de/alerts/feeds/06708116347342762808/6740125697618148595",
 	})
-	updates, err := sub.getUpdates(log.WithField("feed", sub.config.Name))
+	updates, err := sub.getUpdates(slog.With("feed", sub.config.Name))
 	if err != nil {
 		t.Error(err)
 	}
@@ -53,7 +52,7 @@ func TestContargoHomepage(t *testing.T) {
 		Name: "ContargoHomepage",
 		URL:  "https://www.contargo.net/de/feed.xml?format=feed&type=rss",
 	})
-	updates, err := sub.getUpdates(log.WithField("feed", sub.config.Name))
+	updates, err := sub.getUpdates(slog.With("feed", sub.config.Name))
 	if err != nil {
 		t.Error(err)
 	}
@@ -77,7 +76,7 @@ func TestNTV(t *testing.T) {
 		Name: "NTV",
 		URL:  "https://www.n-tv.de/rss",
 	})
-	updates, err := sub.getUpdates(log.WithField("feed", sub.config.Name))
+	updates, err := sub.getUpdates(slog.With("feed", sub.config.Name))
 	if err != nil {
 		t.Error(err)
 	}
@@ -97,6 +96,5 @@ func TestNTV(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	log.SetHandler(memory.New())
 	os.Exit(m.Run())
 }

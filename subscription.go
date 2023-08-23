@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/apex/log"
 	"github.com/mmcdole/gofeed"
+	"log/slog"
 )
 
 // A Subscription holds the configuration to fetch updates from a single URL.
@@ -32,9 +32,9 @@ func NewSubscription(config FeedConfig) *Subscription {
 }
 
 // getUpdates fetches feed updates for specified subscription
-func (s *Subscription) getUpdates(ctx *log.Entry) (updates []feedUpdate, err error) {
+func (s *Subscription) getUpdates(log *slog.Logger) (updates []feedUpdate, err error) {
 
-	defer ctx.WithField("url", s.config.URL).Trace("Get updates").Stop(&err)
+	defer log.With("url", s.config.URL).Info("Get updates")
 
 	updates = make([]feedUpdate, 0)
 
