@@ -1,0 +1,67 @@
+# Before building anything, we need to ensure that go modules and generators are set up correctly
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+# These are the final binaries, that we want to create
+builds:
+  # This first linux build also contains the defaults used for all other platforms
+  - <<: &build_defaults
+      binary: mattermost-rss-reader
+      # The single main entrypoint binary for mattermost-rss-reader
+      main: ./cmd/mattermost-rss-reader
+      env:
+        # We have no C dependencies
+        - CGO_ENABLED=0
+      # We want our builds to be reproducible, so we use the commit time as timestamps
+      mod_timestamp: '{{ .CommitTimestamp }}'
+      ldflags:
+        - -s -w
+        - -X {{.ModulePath}}/cmd/mattermost-rss-reader/main.Version={{.Version}}
+    id: linux
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+
+
+# Configure how snapshots are versioned
+snapshot:
+  name_template: '{{ incpatch .Version }}-dev-{{ .ShortCommit }}'
+
+# Configure what goes into the archives
+archives:
+  - <<: &archive_defaults
+      name_template: "{{ .Binary }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+      # Additonally packaged files
+      files:
+        - LICENSE
+        - README*
+        - CHANGELOG*
+    id: nix
+    builds: [ linux ]
+    format: tar.gz
+
+nfpms:
+  - file_name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}'
+    homepage: https://github.com/BuJo/mattermost-rss-reader
+    description: |-
+      This utility will parse Atom/RSS feeds and post updates to a Mattermost channel.
+    maintainer: Jonathan Buch <jonathan.buch@gmail.com>
+    license: MIT
+    vendor: synyx
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/bin
+    section: utils
+    contents:
+      - src: ./LICENSE
+        dst: /usr/share/doc/mattermost-rss-reader/copyright
+        file_info:
+          mode: 0644
+
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
