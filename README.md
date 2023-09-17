@@ -54,33 +54,9 @@ Configuration is loaded from the included config.json.  Supply the following var
     - `Channel`: optional channel name
     - `Detailed`: optional rich text output
 
-## Docker
+## Development
 
-Run it as a docker container!!
-```bash
-docker build -t "name_of_image" .
-docker run "name_of_image"
-```
-Run it with `docker-compose`:
-```bash
-docker-compose up
-```
+### Releasing
 
-## Releasing
-
-Add a git tag
-```bash
-git tag v0.7
-```
-
-### Build Docker Release
-
-```bash
-docker build -t name_of_image:0.7 --build-arg release=v0.7 .
-```
-
-### Build local release
-
-```bash
-make all release=v0.7
-```
+* Add [CHANGELOG](./CHANGELOG.md) entry
+* Add a git tag

@@ -1,5 +1,10 @@
 # mattermost-rss-reader Changelog
 
+## Release v1.7 - 2023-09-17
+
+* Maintenance release
+* Remove special systemd logging
+
 ## Release v1.6 - 2022-08-14
 
 * Smaller docker image
