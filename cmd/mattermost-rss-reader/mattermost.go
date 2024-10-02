@@ -74,7 +74,7 @@ func itemToDetailedMessage(config *Config, item FeedItem) MattermostMessage {
 		attachment.Text = config.sanitizer.Sanitize(item.Content)
 	}
 
-	if item.Authors != nil && len(item.Authors) > 0 {
+	if len(item.Authors) > 0 {
 		attachment.AuthorName = item.Authors[0].Name
 	}
 
