@@ -9,7 +9,7 @@ type healthState struct {
 	Status string `json:"status"`
 }
 
-func healthHandler(cfg *Config) http.HandlerFunc {
+func healthHandler() http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 

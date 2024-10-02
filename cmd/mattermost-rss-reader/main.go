@@ -73,7 +73,7 @@ func main() {
 		go func() {
 			http.HandleFunc("/feeds", feedCommandHandler(cfg))
 			http.Handle("/actuator/metrics", promhttp.Handler())
-			http.HandleFunc("/actuator/health", healthHandler(cfg))
+			http.HandleFunc("/actuator/health", healthHandler())
 
 			cfg.log.Info("Listening for commands\n", "url", "http://"+*httpBind+"/feeds")
 
