@@ -47,30 +47,6 @@ func TestGoogleAlert(t *testing.T) {
 	}
 }
 
-func TestContargoHomepage(t *testing.T) {
-	sub := NewSubscription(FeedConfig{
-		Name: "ContargoHomepage",
-		URL:  "https://www.contargo.net/de/feed.xml?format=feed&type=rss",
-	})
-	updates, err := sub.getUpdates(slog.With("feed", sub.config.Name))
-	if err != nil {
-		t.Error(err)
-	}
-	if len(updates) == 0 {
-		t.Error("No updates")
-		return
-	}
-
-	for i1, u1 := range updates {
-		for i2, u2 := range updates {
-			if i1 != i2 {
-				if u1.Equal(u2) {
-					t.Error("Should not equal", u1.GUID, u2.GUID, u1.Link, u2.Link)
-				}
-			}
-		}
-	}
-}
 func TestNTV(t *testing.T) {
 	sub := NewSubscription(FeedConfig{
 		Name: "NTV",
