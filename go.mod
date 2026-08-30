@@ -3,7 +3,7 @@ module github.com/BuJo/mattermost-rss-reader
 go 1.23.0
 
 require (
-	github.com/coreos/go-systemd/v22 v22.5.0
+	github.com/coreos/go-systemd/v22 v22.7.0
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/mmcdole/gofeed v1.3.0
 	github.com/prometheus/client_golang v1.21.1
